@@ -1,3 +1,9 @@
+> Évaluation v2 : l'indice numérique est heuristique et non calibré. Il ne représente
+> pas une probabilité de sécurité. La couverture de sécurité reste partielle, même
+> si achat/transfert/revente réussissent. Les anciens rapports doivent être réanalysés.
+> Les alertes `min_score` filtrent un indice, sans recommandation d'achat.
+> Les erreurs de simulation et les permissions inconnues ne prouvent pas leur absence.
+
 # RugRadar
 
 **Scanner de risque en temps réel pour les nouveaux tokens listés sur PancakeSwap (BNB Smart Chain).**

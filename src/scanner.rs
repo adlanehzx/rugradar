@@ -88,6 +88,12 @@ impl Scanner {
                     {
                         warn!(%err,"cannot persist head metric");
                     }
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)?
+                        .as_secs();
+                    self.store
+                        .set_setting("scanner_heartbeat", &now.to_string())
+                        .await?;
                     next = self
                         .scan_until(next, head.saturating_sub(self.config.confirmations))
                         .await
@@ -157,6 +163,11 @@ impl Scanner {
 
     /// Analyses one token. Public so the `check <address>` command can reuse it.
     pub async fn analyse(&self, pair: NewPair) -> Result<TokenFacts> {
+        tokio::time::timeout(std::time::Duration::from_secs(60), self.analyse_inner(pair))
+            .await
+            .map_err(|_| anyhow::anyhow!("analysis timed out; no result persisted"))?
+    }
+    async fn analyse_inner(&self, pair: NewPair) -> Result<TokenFacts> {
         let chain = &self.chain;
         let (meta, ownership, bytecode, liquidity, simulation) = tokio::join!(
             chain.token_metadata(pair.token),

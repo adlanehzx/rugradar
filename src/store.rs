@@ -108,11 +108,11 @@ impl Store {
     }
 
     pub async fn pending_alerts(&self) -> Result<Vec<(String, String)>> {
-        Ok(
-            sqlx::query_as("SELECT token, message FROM alert_outbox WHERE delivered = 0 LIMIT 100")
-                .fetch_all(&self.pool)
-                .await?,
+        Ok(sqlx::query_as(
+            "SELECT token, message FROM alert_outbox WHERE delivered = 0 AND cancelled=0 LIMIT 100",
         )
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     pub async fn mark_delivered(&self, token: &str) -> Result<()> {

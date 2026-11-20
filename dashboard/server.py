@@ -4,6 +4,7 @@ import argparse
 import csv
 import io
 import json
+import time
 import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,6 +14,8 @@ from urllib.parse import urlparse, parse_qs
 def handler(database):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
+            if self.headers.get('Host','').split(':')[0] not in ('127.0.0.1','localhost'):
+                self.send_error(403); return
             url = urlparse(self.path)
             try:
                 with sqlite3.connect(f'file:{database}?mode=ro', uri=True) as db:
@@ -27,9 +30,11 @@ def handler(database):
                     if url.path == '/api/status':
                         cursor = db.execute('SELECT last_block FROM cursor WHERE id=1').fetchone()
                         head = db.execute("SELECT value FROM settings WHERE key='chain_head'").fetchone()
-                        return self.reply({'last_block': cursor[0] if cursor else None, 'chain_head': int(head[0]) if head else None,
+                        heartbeat = db.execute("SELECT value FROM settings WHERE key='scanner_heartbeat'").fetchone()
+                        return self.reply({'scanner_stale': not heartbeat or time.time()-int(heartbeat[0])>120,
+                            'last_block': cursor[0] if cursor else None, 'chain_head': int(head[0]) if head else None,
                             'lag_blocks': max(0,int(head[0])-cursor[0]) if head and cursor else None,
-                            'pending_alerts': db.execute('SELECT COUNT(*) FROM alert_outbox WHERE delivered=0').fetchone()[0] + db.execute('SELECT COUNT(*) FROM change_alerts WHERE delivered=0').fetchone()[0],
+                            'pending_alerts': db.execute('SELECT COUNT(*) FROM alert_outbox WHERE delivered=0 AND cancelled=0').fetchone()[0] + db.execute('SELECT COUNT(*) FROM change_alerts WHERE delivered=0').fetchone()[0],
                             'watchlist': [r[0] for r in db.execute('SELECT token FROM watchlist')],
                             'latest_analysis': db.execute('SELECT MAX(analysed_at) FROM tokens').fetchone()[0]})
                     if url.path == '/export.csv':

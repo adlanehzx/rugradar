@@ -104,6 +104,7 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
     result["to_block"] = json!(head);
     let mut candidates = BTreeSet::new();
     let mut role_candidates = BTreeSet::new();
+
     let mut logs_ok = true;
     for start in (from..=head).step_by(100) {
         let topic = keccak256("Transfer(address,address,uint256)");
@@ -226,6 +227,8 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
         }
     }
     result["active_roles_sample"] = json!(roles);
+    result["roles_coverage"] = json!({"status":"partial","absence_proven":false,"note":"Empty results do not establish absence of roles; queries may fail or omit historical/custom roles"});
+    result["holder_sampling"] = json!({"limit":20,"selection":"lexicographic addresses seen in recent transfers","top_holders_proven":false});
     result
 }
 
