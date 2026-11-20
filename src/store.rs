@@ -78,6 +78,23 @@ impl Store {
         Ok(())
     }
 
+    pub async fn queue_alert(&self, token: &str, message: &str) -> Result<()> {
+        sqlx::query("INSERT OR IGNORE INTO alert_outbox(token, message) VALUES (?, ?)")
+            .bind(token).bind(message).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    pub async fn pending_alerts(&self) -> Result<Vec<(String, String)>> {
+        Ok(sqlx::query_as("SELECT token, message FROM alert_outbox WHERE delivered = 0 LIMIT 100")
+            .fetch_all(&self.pool).await?)
+    }
+
+    pub async fn mark_delivered(&self, token: &str) -> Result<()> {
+        sqlx::query("UPDATE alert_outbox SET delivered = 1 WHERE token = ?")
+            .bind(token).execute(&self.pool).await?;
+        Ok(())
+    }
+
     pub async fn stats(&self) -> Result<(i64, i64)> {
         let row: (i64, i64) =
             sqlx::query_as("SELECT COUNT(*), COALESCE(SUM(honeypot), 0) FROM tokens")

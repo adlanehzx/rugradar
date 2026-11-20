@@ -60,6 +60,9 @@ impl Scanner {
                 Ok(head) => next = self.scan_until(next, head).await,
                 Err(err) => warn!(%err, "cannot read the latest block"),
             }
+            if let Err(err) = self.deliver_alerts().await {
+                warn!(%err, "alert delivery failed; retrying next pass");
+            }
             tokio::time::sleep(self.config.poll_interval).await;
         }
     }
@@ -89,6 +92,16 @@ impl Scanner {
             next = to + 1;
         }
         next
+    }
+
+    async fn deliver_alerts(&self) -> Result<()> {
+        if let Some(tg) = &self.telegram {
+            for (token, message) in self.store.pending_alerts().await? {
+                tg.send(&message).await?;
+                self.store.mark_delivered(&token).await?;
+            }
+        }
+        Ok(())
     }
 
     /// Analyses one token. Public so the `check <address>` command can reuse it.
@@ -125,9 +138,6 @@ impl Scanner {
     }
 
     async fn handle(&self, pair: NewPair) -> Result<()> {
-        if self.store.is_known(&pair.token.to_string()).await? {
-            return Ok(());
-        }
         let facts = self.analyse(pair).await?;
         let assessment = assess(&facts);
         info!(
@@ -144,16 +154,11 @@ impl Scanner {
             AlertMode::MinScore => assessment.complete && assessment.score >= self.config.alert_min_score,
             AlertMode::Off => false,
         };
-        let mut alerted = false;
-        if let (true, Some(tg)) = (wanted, &self.telegram) {
-            match tg.send(&format_alert(&facts, &assessment)).await {
-                Ok(()) => alerted = true,
-                Err(err) => warn!(%err, "telegram alert failed"),
-            }
+        self.store.save(pair.block, &facts, &assessment, false).await?;
+        if wanted && self.telegram.is_some() {
+            self.store.queue_alert(&pair.token.to_string(), &format_alert(&facts, &assessment)).await?;
         }
-        self.store
-            .save(pair.block, &facts, &assessment, alerted)
-            .await
+        Ok(())
     }
 }
 
