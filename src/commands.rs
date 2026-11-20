@@ -19,14 +19,14 @@ impl Scanner {
         for update in tg.updates(offset).await? {
             let id = update["update_id"].as_i64().context("missing update id")?;
             let message = &update["message"];
-            if tg.authorized(message) {
-                if let Some(text) = message["text"].as_str() {
-                    let reply = match self.command(text).await {
+            if tg.authorized(message)
+                && let Some(text) = message["text"].as_str()
+            {
+                let reply = match self.command(text).await {
                         Ok(reply) => reply,
                         Err(_) => "Impossible de traiter la demande. Vérifie l'adresse et réessaie ; le RPC peut être indisponible.".into(),
                     };
-                    tg.send(&reply).await?;
-                }
+                tg.send(&reply).await?;
             }
             self.store
                 .set_setting("telegram_offset", &(id + 1).to_string())
@@ -132,7 +132,12 @@ impl Scanner {
                     self.store.save(block, &facts, &assessment, false).await?;
                     self.store.watch(&token.to_string(), true).await?;
                 }
-                Ok(format_alert(&facts, &assessment))
+                let report = format_alert(&facts, &assessment);
+                Ok(if command == "/watch" {
+                    format!("✅ Token ajouté au suivi.\n{report}")
+                } else {
+                    report
+                })
             }
             _ => Ok(HELP.into()),
         }
@@ -151,6 +156,65 @@ fn valid_filter(key: &str, value: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn commands_persist_pause_filters_and_reject_invalid_address() {
+        use crate::{
+            chain::Chain,
+            config::{AlertMode, Config, PANCAKE_V2_FACTORY, PANCAKE_V2_ROUTER, WBNB},
+            scanner::Scanner,
+            store::Store,
+        };
+        let config = Config {
+            rpc_url: "http://127.0.0.1:1".into(),
+            chain_id: 56,
+            factory: PANCAKE_V2_FACTORY,
+            router: PANCAKE_V2_ROUTER,
+            wrapped_native: WBNB,
+            database_url: "sqlite::memory:".into(),
+            poll_interval: std::time::Duration::from_secs(1),
+            start_lookback: 100,
+            confirmations: 0,
+            max_block_range: 100,
+            sim_buy_value: alloy::primitives::U256::from(1),
+            telegram_bot_token: None,
+            telegram_chat_id: None,
+            alert_mode: AlertMode::Off,
+            alert_min_score: 60,
+            alert_min_liquidity: 0.0,
+            alert_max_tax_bps: 10000,
+        };
+        let store = Store::open("sqlite::memory:").await.unwrap();
+        let scanner =
+            Scanner::new(Chain::connect(&config).unwrap(), store.clone(), config).unwrap();
+        scanner.command("/pause").await.unwrap();
+        assert_eq!(
+            store.setting("paused").await.unwrap().as_deref(),
+            Some("true")
+        );
+        scanner.command("/filters min_score 75").await.unwrap();
+        assert_eq!(
+            store.setting("min_score").await.unwrap().as_deref(),
+            Some("75")
+        );
+        scanner.command("/filters min_score 999").await.unwrap();
+        assert_eq!(
+            store.setting("min_score").await.unwrap().as_deref(),
+            Some("75")
+        );
+        assert!(
+            scanner
+                .command("/check invalid")
+                .await
+                .unwrap()
+                .contains("invalide")
+        );
+        scanner.command("/resume").await.unwrap();
+        assert_eq!(
+            store.setting("paused").await.unwrap().as_deref(),
+            Some("false")
+        );
+    }
+
     #[test]
     fn filter_validation_rejects_nonfinite_and_out_of_range() {
         for (key, value) in [

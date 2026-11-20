@@ -28,7 +28,11 @@ fn address_word(value: &Value) -> Option<Address> {
     if word.len() != 66 {
         return None;
     }
-    let a: Address = format!("0x{}", &word[26..]).parse().ok()?;
+    let bytes = alloy::hex::decode(word).ok()?;
+    if bytes.len() != 32 || bytes[..12].iter().any(|b| *b != 0) {
+        return None;
+    }
+    let a = Address::from_slice(&bytes[12..]);
     (a != Address::ZERO).then_some(a)
 }
 async fn call(url: &str, token: Address, signature: &str, args: &str) -> Result<Value> {
@@ -69,25 +73,22 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
     if let Some(implementation) = result["implementation"]["address"]
         .as_str()
         .and_then(|s| s.parse::<Address>().ok())
-    {
-        if let Ok(code) = rpc(
+        && let Ok(code) = rpc(
             url,
             "eth_getCode",
             json!([implementation.to_string(), "latest"]),
         )
         .await
-        {
-            if let Some(code) = code.as_str().and_then(|s| alloy::hex::decode(s).ok()) {
-                let report = crate::bytecode::analyze(&code);
-                result["implementation_capabilities"] = json!(
-                    report
-                        .capabilities
-                        .iter()
-                        .map(|c| c.label())
-                        .collect::<Vec<_>>()
-                );
-            }
-        }
+        && let Some(code) = code.as_str().and_then(|s| alloy::hex::decode(s).ok())
+    {
+        let report = crate::bytecode::analyze(&code);
+        result["implementation_capabilities"] = json!(
+            report
+                .capabilities
+                .iter()
+                .map(|c| c.label())
+                .collect::<Vec<_>>()
+        );
     }
     let Ok(head) = rpc(url, "eth_blockNumber", json!([])).await else {
         return result;
@@ -226,4 +227,36 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
     }
     result["active_roles_sample"] = json!(roles);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn malformed_rpc_addresses_are_rejected_without_panics() {
+        assert_eq!(
+            address_word(&json!(
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+            )),
+            None
+        );
+        assert_eq!(address_word(&json!("é".repeat(33))), None);
+        assert_eq!(
+            address_word(&json!(
+                "0x0000000000000000000000001111111111111111111111111111111111111111"
+            )),
+            Some(Address::repeat_byte(0x11))
+        );
+    }
+    #[tokio::test]
+    async fn rpc_transport_failure_is_sanitized() {
+        let err = rpc(
+            "http://127.0.0.1:1/secret-api-key",
+            "eth_chainId",
+            json!([]),
+        )
+        .await
+        .unwrap_err();
+        assert!(!err.to_string().contains("secret-api-key"));
+    }
 }

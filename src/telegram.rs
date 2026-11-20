@@ -69,11 +69,37 @@ impl Telegram {
         })
     }
 
+    pub async fn register_commands(&self) -> Result<()> {
+        let commands = [
+            ("help", "Aide"),
+            ("check", "Analyser un token"),
+            ("deep", "Examiner détenteurs rôles et proxy"),
+            ("watch", "Suivre un token"),
+            ("unwatch", "Retirer du suivi"),
+            ("watchlist", "Liste suivie"),
+            ("filters", "Réglages des alertes"),
+            ("stats", "Statistiques"),
+            ("pause", "Suspendre les alertes"),
+            ("resume", "Reprendre les alertes"),
+        ];
+        let response=self.client.post(format!("https://api.telegram.org/bot{}/setMyCommands",self.token))
+            .json(&serde_json::json!({"commands":commands.iter().map(|(command,description)|serde_json::json!({"command":command,"description":description})).collect::<Vec<_>>(),"scope":{"type":"chat","chat_id":self.chat_id}}))
+            .send().await.map_err(|_|anyhow::anyhow!("Telegram menu unavailable"))?;
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Invalid Telegram menu response"))?;
+        anyhow::ensure!(body["ok"] == true, "Telegram menu rejected");
+        Ok(())
+    }
     pub async fn updates(&self, offset: i64) -> Result<Vec<serde_json::Value>> {
         let response = self.client.post(format!("https://api.telegram.org/bot{}/getUpdates", self.token))
             .json(&serde_json::json!({"offset":offset,"timeout":0,"allowed_updates":["message"],"limit":20}))
             .send().await.map_err(|_| anyhow::anyhow!("Telegram polling transport error"))?;
-        let body: serde_json::Value = response.json().await?;
+        let body: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Invalid Telegram polling response"))?;
         anyhow::ensure!(body["ok"] == true, "Telegram polling rejected");
         Ok(body["result"].as_array().cloned().unwrap_or_default())
     }

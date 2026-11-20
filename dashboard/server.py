@@ -26,8 +26,10 @@ def handler(database):
                         return self.reply([{'date': r['created_at'], 'report': json.loads(r['report'])} for r in rows])
                     if url.path == '/api/status':
                         cursor = db.execute('SELECT last_block FROM cursor WHERE id=1').fetchone()
-                        return self.reply({'last_block': cursor[0] if cursor else None,
-                            'pending_alerts': db.execute('SELECT COUNT(*) FROM alert_outbox WHERE delivered=0').fetchone()[0],
+                        head = db.execute("SELECT value FROM settings WHERE key='chain_head'").fetchone()
+                        return self.reply({'last_block': cursor[0] if cursor else None, 'chain_head': int(head[0]) if head else None,
+                            'lag_blocks': max(0,int(head[0])-cursor[0]) if head and cursor else None,
+                            'pending_alerts': db.execute('SELECT COUNT(*) FROM alert_outbox WHERE delivered=0').fetchone()[0] + db.execute('SELECT COUNT(*) FROM change_alerts WHERE delivered=0').fetchone()[0],
                             'watchlist': [r[0] for r in db.execute('SELECT token FROM watchlist')],
                             'latest_analysis': db.execute('SELECT MAX(analysed_at) FROM tokens').fetchone()[0]})
                     if url.path == '/export.csv':

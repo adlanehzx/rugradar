@@ -43,6 +43,11 @@ impl Scanner {
 
     /// Runs forever: every `poll_interval`, scans the blocks produced since the last pass.
     pub async fn run(&self) -> Result<()> {
+        if let Some(tg) = &self.telegram {
+            if let Err(err) = tg.register_commands().await {
+                warn!(%err,"cannot register Telegram menu");
+            }
+        }
         let commands = async {
             loop {
                 if let Err(err) = self.poll_commands().await {
@@ -76,6 +81,13 @@ impl Scanner {
         loop {
             match self.chain.latest_block().await {
                 Ok(head) => {
+                    if let Err(err) = self
+                        .store
+                        .set_setting("chain_head", &head.to_string())
+                        .await
+                    {
+                        warn!(%err,"cannot persist head metric");
+                    }
                     next = self
                         .scan_until(next, head.saturating_sub(self.config.confirmations))
                         .await

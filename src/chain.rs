@@ -75,13 +75,11 @@ impl Chain {
         self.providers[self.active.load(std::sync::atomic::Ordering::Relaxed)].clone()
     }
     fn rotate(&self) {
-        self.active
-            .try_update(
-                std::sync::atomic::Ordering::Relaxed,
-                std::sync::atomic::Ordering::Relaxed,
-                |i| Some((i + 1) % self.providers.len()),
-            )
-            .ok();
+        let current = self.active.load(std::sync::atomic::Ordering::Relaxed);
+        self.active.store(
+            (current + 1) % self.providers.len(),
+            std::sync::atomic::Ordering::Relaxed,
+        );
     }
 
     pub async fn chain_id(&self) -> Result<u64> {
@@ -252,6 +250,69 @@ fn u256_ratio(a: U256, b: U256) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn falls_back_after_primary_transport_failure() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mock = tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                tokio::spawn(async move {
+                    let mut bytes = Vec::new();
+                    let mut buf = [0u8; 4096];
+                    let request = loop {
+                        let n = socket.read(&mut buf).await.unwrap();
+                        if n == 0 {
+                            return;
+                        }
+                        bytes.extend_from_slice(&buf[..n]);
+                        if let Some(start) = bytes.windows(4).position(|s| s == b"\r\n\r\n") {
+                            if let Ok(body) =
+                                serde_json::from_slice::<serde_json::Value>(&bytes[start + 4..])
+                            {
+                                break body;
+                            }
+                        }
+                    };
+                    let result = if request["method"] == "eth_chainId" {
+                        "0x38"
+                    } else {
+                        "0x64"
+                    };
+                    let body =
+                        serde_json::json!({"jsonrpc":"2.0","id":request["id"],"result":result})
+                            .to_string();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    socket.write_all(response.as_bytes()).await.unwrap();
+                });
+            }
+        });
+        let chain = Chain {
+            providers: vec![
+                ProviderBuilder::new()
+                    .connect_http("http://127.0.0.1:1".parse().unwrap())
+                    .erased(),
+                ProviderBuilder::new()
+                    .connect_http(format!("http://{addr}").parse().unwrap())
+                    .erased(),
+            ],
+            active: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            expected_chain: 56,
+            simulator_code: Vec::new(),
+            factory: Address::ZERO,
+            router: Address::ZERO,
+            wrapped_native: Address::ZERO,
+        };
+        assert_eq!(chain.latest_block().await.unwrap(), 100);
+        assert_eq!(chain.active.load(std::sync::atomic::Ordering::Relaxed), 1);
+        mock.abort();
+    }
 
     #[test]
     fn embedded_simulator_bytecode_is_valid_hex() {
