@@ -11,7 +11,7 @@ pub struct Scanner {
     pub(crate) chain: Chain,
     pub(crate) store: Store,
     pub(crate) telegram: Option<Telegram>,
-    config: Config,
+    pub(crate) config: Config,
 }
 
 /// Splits `[from, to]` into consecutive ranges of at most `max` blocks.
@@ -150,7 +150,23 @@ impl Scanner {
             .iter()
             .map(|c| c.label().to_owned())
             .collect();
+        let evidence = if self
+            .store
+            .watches()
+            .await?
+            .contains(&pair.token.to_string())
+        {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(25),
+                crate::enrichment::collect(&self.config.rpc_url, pair.token, pair.pair),
+            )
+            .await
+            .unwrap_or_else(|_| serde_json::json!({"status":"timeout"}))
+        } else {
+            serde_json::json!({"status":"not_requested","hint":"Use /deep for detailed evidence"})
+        };
         Ok(TokenFacts {
+            evidence,
             token: pair.token,
             pair: pair.pair,
             name,
@@ -177,17 +193,33 @@ impl Scanner {
             "analysed"
         );
 
+        let min_score = self
+            .store
+            .setting("min_score")
+            .await?
+            .and_then(|v| v.parse::<u8>().ok())
+            .unwrap_or(self.config.alert_min_score);
+        let min_liquidity = self
+            .store
+            .setting("min_liquidity")
+            .await?
+            .and_then(|v| v.parse::<f64>().ok())
+            .unwrap_or(self.config.alert_min_liquidity);
+        let max_tax = self
+            .store
+            .setting("max_tax")
+            .await?
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(self.config.alert_max_tax_bps);
         let wanted = match self.config.alert_mode {
             AlertMode::All => true,
-            AlertMode::MinScore => {
-                assessment.complete && assessment.score >= self.config.alert_min_score
-            }
+            AlertMode::MinScore => assessment.complete && assessment.score >= min_score,
             AlertMode::Off => false,
         };
         self.store
             .save(pair.block, &facts, &assessment, false)
             .await?;
-        let passes_filters = facts.liquidity_bnb >= self.config.alert_min_liquidity
+        let passes_filters = facts.liquidity_bnb >= min_liquidity
             && [
                 facts.simulation.buy_tax_bps,
                 facts.simulation.sell_tax_bps,
@@ -195,7 +227,7 @@ impl Scanner {
             ]
             .into_iter()
             .flatten()
-            .all(|tax| tax <= self.config.alert_max_tax_bps);
+            .all(|tax| tax <= max_tax);
         if wanted && passes_filters && self.telegram.is_some() {
             self.store
                 .queue_alert(&pair.token.to_string(), &format_alert(&facts, &assessment))

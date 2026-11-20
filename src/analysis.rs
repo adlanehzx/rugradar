@@ -88,6 +88,7 @@ pub enum Ownership {
 /// Everything the scanner learnt about a freshly listed token.
 #[derive(Debug, Clone, Serialize)]
 pub struct TokenFacts {
+    pub evidence: serde_json::Value,
     pub token: Address,
     pub pair: Address,
     pub name: String,
@@ -283,6 +284,7 @@ mod tests {
 
     fn safe_token() -> TokenFacts {
         TokenFacts {
+            evidence: serde_json::Value::Null,
             token: Address::repeat_byte(1),
             pair: Address::repeat_byte(2),
             name: "Safe".into(),

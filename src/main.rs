@@ -5,6 +5,7 @@ mod bytecode;
 mod chain;
 mod commands;
 mod config;
+mod enrichment;
 mod scanner;
 mod store;
 mod telegram;

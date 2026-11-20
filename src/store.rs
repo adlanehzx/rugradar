@@ -189,6 +189,7 @@ mod tests {
 
     fn facts() -> TokenFacts {
         TokenFacts {
+            evidence: serde_json::Value::Null,
             token: Address::repeat_byte(0xaa),
             pair: Address::repeat_byte(0xbb),
             name: "Test".into(),

@@ -2,7 +2,7 @@
 use crate::analysis::{Assessment, TokenFacts};
 use anyhow::Result;
 
-fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
@@ -86,12 +86,26 @@ impl Telegram {
     }
 
     pub async fn send(&self, text: &str) -> Result<()> {
+        // Bound on-chain metadata and deep reports to Telegram's message limit.
+        // Split at newlines so HTML entities and generated tags remain intact.
+        if text.chars().count() > 3900 {
+            for chunk in text.as_bytes().chunks(3000) {
+                let plain = String::from_utf8_lossy(chunk);
+                self.send_part(&escape(&plain.replace(['<', '>'], "")))
+                    .await?;
+            }
+            return Ok(());
+        }
+        self.send_part(text).await
+    }
+    async fn send_part(&self, text: &str) -> Result<()> {
         let url = format!("https://api.telegram.org/bot{}/sendMessage", self.token);
         let body = serde_json::json!({
             "chat_id": self.chat_id,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": true,
+            "reply_markup": {"keyboard":[[{"text":"/stats"},{"text":"/watchlist"}],[{"text":"/filters"},{"text":"/help"}],[{"text":"/pause"},{"text":"/resume"}]],"resize_keyboard":true},
         });
         let res = self
             .client
@@ -138,6 +152,7 @@ mod tests {
     #[test]
     fn alert_contains_key_information_and_escapes_html() {
         let f = TokenFacts {
+            evidence: serde_json::Value::Null,
             token: Address::repeat_byte(0x11),
             pair: Address::repeat_byte(0x22),
             name: "<Moon> & Co".into(),
