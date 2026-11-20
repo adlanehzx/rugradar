@@ -4,3 +4,7 @@
 *.db-shm
 *.db-wal
 node_modules/
+*.log
+*.pid
+__pycache__/
+/backups/

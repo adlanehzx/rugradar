@@ -30,7 +30,9 @@ pub struct NewPair {
 
 #[derive(Clone)]
 pub struct Chain {
-    provider: DynProvider,
+    providers: Vec<DynProvider>,
+    active: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    expected_chain: u64,
     simulator_code: Vec<u8>,
     factory: Address,
     router: Address,
@@ -44,10 +46,24 @@ impl Chain {
             .parse()
             .context("RPC_URL is not a valid URL")?;
         let provider = ProviderBuilder::new().connect_http(url).erased();
+        let mut providers = vec![provider];
+        for url in std::env::var("RPC_FALLBACK_URLS")
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.trim().is_empty())
+        {
+            providers.push(
+                ProviderBuilder::new()
+                    .connect_http(url.trim().parse().context("invalid fallback RPC URL")?)
+                    .erased(),
+            );
+        }
         let simulator_code =
             alloy::hex::decode(SIMULATOR_RUNTIME.trim()).context("invalid Simulator.bin")?;
         Ok(Self {
-            provider,
+            providers,
+            active: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            expected_chain: config.chain_id,
             simulator_code,
             factory: config.factory,
             router: config.router,
@@ -55,12 +71,40 @@ impl Chain {
         })
     }
 
+    fn provider(&self) -> DynProvider {
+        self.providers[self.active.load(std::sync::atomic::Ordering::Relaxed)].clone()
+    }
+    fn rotate(&self) {
+        self.active
+            .try_update(
+                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::Relaxed,
+                |i| Some((i + 1) % self.providers.len()),
+            )
+            .ok();
+    }
+
     pub async fn chain_id(&self) -> Result<u64> {
-        Ok(self.provider.get_chain_id().await?)
+        Ok(self.provider().get_chain_id().await?)
     }
 
     pub async fn latest_block(&self) -> Result<u64> {
-        Ok(self.provider.get_block_number().await?)
+        for _ in 0..self.providers.len() {
+            let provider = self.provider();
+            let result = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                anyhow::ensure!(
+                    provider.get_chain_id().await? == self.expected_chain,
+                    "RPC chain mismatch"
+                );
+                Ok::<u64, anyhow::Error>(provider.get_block_number().await?)
+            })
+            .await;
+            if let Ok(Ok(head)) = result {
+                return Ok(head);
+            }
+            self.rotate();
+        }
+        anyhow::bail!("All configured RPC endpoints unavailable")
     }
 
     /// `PairCreated` events in `[from, to]`, keeping only TOKEN/WBNB pairs.
@@ -70,7 +114,18 @@ impl Chain {
             .event_signature(IPancakeFactory::PairCreated::SIGNATURE_HASH)
             .from_block(from)
             .to_block(to);
-        let logs = self.provider.get_logs(&filter).await?;
+        let logs = match tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            self.provider().get_logs(&filter),
+        )
+        .await
+        {
+            Ok(Ok(logs)) => logs,
+            _ => {
+                self.rotate();
+                anyhow::bail!("RPC log query failed; endpoint rotated");
+            }
+        };
         let mut pairs = Vec::new();
         for log in logs {
             let block = log.block_number.unwrap_or(to);
@@ -95,7 +150,7 @@ impl Chain {
 
     /// Existing TOKEN/WBNB pair, if any.
     pub async fn pair_for(&self, token: Address) -> Result<Option<Address>> {
-        let pair = IPancakeFactory::new(self.factory, &self.provider)
+        let pair = IPancakeFactory::new(self.factory, &self.provider())
             .getPair(token, self.wrapped_native)
             .call()
             .await?;
@@ -103,7 +158,8 @@ impl Chain {
     }
 
     pub async fn token_metadata(&self, token: Address) -> (String, String, u8) {
-        let erc20 = IERC20Meta::new(token, &self.provider);
+        let provider = self.provider();
+        let erc20 = IERC20Meta::new(token, &provider);
         let name = erc20.name().call().await.unwrap_or_else(|_| "?".into());
         let symbol = erc20.symbol().call().await.unwrap_or_else(|_| "?".into());
         let decimals = erc20.decimals().call().await.unwrap_or(18);
@@ -111,7 +167,7 @@ impl Chain {
     }
 
     pub async fn ownership(&self, token: Address) -> Ownership {
-        match IOwnable::new(token, &self.provider).owner().call().await {
+        match IOwnable::new(token, &self.provider()).owner().call().await {
             Ok(owner) if owner == Address::ZERO || owner == DEAD => Ownership::Renounced,
             Ok(owner) => Ownership::Owned(owner),
             Err(_) => Ownership::NoOwnerFunction,
@@ -119,13 +175,14 @@ impl Chain {
     }
 
     pub async fn bytecode(&self, token: Address) -> Result<BytecodeReport> {
-        let code = self.provider.get_code_at(token).await?;
+        let code = self.provider().get_code_at(token).await?;
         Ok(bytecode::analyze(&code))
     }
 
     /// Wrapped-native reserve of the pair (in BNB) and the share of LP tokens that were burned.
     pub async fn liquidity(&self, pair: Address, token: Address) -> Result<(f64, f64)> {
-        let lp = IPancakePair::new(pair, &self.provider);
+        let provider = self.provider();
+        let lp = IPancakePair::new(pair, &provider);
         let reserves = lp.getReserves().call().await?;
         let native_reserve = if token < self.wrapped_native {
             reserves.reserve1
@@ -164,7 +221,7 @@ impl Chain {
             .with_balance(CALLER, buy_value * U256::from(10u8))
             .build();
 
-        let raw = match self.provider.call(tx).overrides(overrides).await {
+        let raw = match self.provider().call(tx).overrides(overrides).await {
             Ok(raw) => raw,
             Err(err) => {
                 tracing::debug!(%token, %err, "simulation call failed");

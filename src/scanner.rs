@@ -43,6 +43,20 @@ impl Scanner {
 
     /// Runs forever: every `poll_interval`, scans the blocks produced since the last pass.
     pub async fn run(&self) -> Result<()> {
+        let commands = async {
+            loop {
+                if let Err(err) = self.poll_commands().await {
+                    warn!(%err,"Telegram commands unavailable; retrying");
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+            #[allow(unreachable_code)]
+            Ok::<(), anyhow::Error>(())
+        };
+        tokio::try_join!(self.scan_loop(), commands)?;
+        Ok(())
+    }
+    async fn scan_loop(&self) -> Result<()> {
         let head = self
             .chain
             .latest_block()
@@ -60,9 +74,6 @@ impl Scanner {
         );
 
         loop {
-            if let Err(err) = self.poll_commands().await {
-                warn!(%err, "Telegram command processing failed");
-            }
             match self.chain.latest_block().await {
                 Ok(head) => {
                     next = self

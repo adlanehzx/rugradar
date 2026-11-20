@@ -38,6 +38,10 @@ async fn main() -> Result<()> {
     }
 
     let chain = chain::Chain::connect(&config)?;
+    chain
+        .latest_block()
+        .await
+        .context("no healthy RPC endpoint")?;
     let chain_id = chain.chain_id().await.context("cannot reach the RPC")?;
     anyhow::ensure!(
         chain_id == config.chain_id,
