@@ -51,6 +51,8 @@ pub struct Config {
     pub telegram_chat_id: Option<String>,
     pub alert_mode: AlertMode,
     pub alert_min_score: u8,
+    pub alert_min_liquidity: f64,
+    pub alert_max_tax_bps: u32,
 }
 
 fn var(key: &str) -> Option<String> {
@@ -102,6 +104,8 @@ impl Config {
             telegram_chat_id: var("TELEGRAM_CHAT_ID"),
             alert_mode: parse("ALERT_MODE", AlertMode::MinScore)?,
             alert_min_score,
+            alert_min_liquidity: parse("ALERT_MIN_LIQUIDITY_BNB", 0.0)?,
+            alert_max_tax_bps: parse("ALERT_MAX_TAX_BPS", 10_000)?,
         })
     }
 

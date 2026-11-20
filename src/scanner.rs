@@ -177,7 +177,16 @@ impl Scanner {
         self.store
             .save(pair.block, &facts, &assessment, false)
             .await?;
-        if wanted && self.telegram.is_some() {
+        let passes_filters = facts.liquidity_bnb >= self.config.alert_min_liquidity
+            && [
+                facts.simulation.buy_tax_bps,
+                facts.simulation.sell_tax_bps,
+                facts.simulation.transfer_tax_bps,
+            ]
+            .into_iter()
+            .flatten()
+            .all(|tax| tax <= self.config.alert_max_tax_bps);
+        if wanted && passes_filters && self.telegram.is_some() {
             self.store
                 .queue_alert(&pair.token.to_string(), &format_alert(&facts, &assessment))
                 .await?;
