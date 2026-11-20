@@ -119,3 +119,21 @@ Après une modification de `Simulator.sol`, regénérez le bytecode embarqué av
 ## Licence
 
 [MIT](LICENSE) © Adlane Hamzaoui
+
+## Reprise et suivi
+
+Les erreurs d'analyse ou de sauvegarde du curseur interrompent la plage courante :
+elle sera retentée au prochain passage. Les tokens enregistrés sont réanalysés
+toutes les cinq minutes (100 au maximum par passage), notamment lorsque la paire
+n'avait pas encore de liquidité lors de sa création.
+
+Les alertes Telegram passent par une file SQLite persistante. Une alerte initiale
+au maximum est mise en file par token ; les échecs sont retentés. La livraison est
+au moins une fois : une réponse réseau perdue après réception par Telegram peut
+entraîner un doublon. Les réanalyses ne génèrent pas encore d'alertes de changement.
+
+Le champ JSON `assessment.complete` indique si la simulation est disponible.
+Sinon, le niveau de risque est `Indeterminate` et les alertes `min_score` sont
+bloquées. Le score numérique reste une estimation partielle. Un `owner()` renoncé
+ne désactive plus les avertissements sur les fonctions dangereuses : d'autres
+rôles peuvent conserver leurs permissions.
