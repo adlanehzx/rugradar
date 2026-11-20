@@ -129,6 +129,38 @@ impl Store {
         Ok(())
     }
 
+    pub async fn change_alerts(&self) -> Result<Vec<(i64, String)>> {
+        Ok(sqlx::query_as(
+            "SELECT id,message FROM change_alerts WHERE delivered=0 ORDER BY id LIMIT 50",
+        )
+        .fetch_all(&self.pool)
+        .await?)
+    }
+    pub async fn delivered_change(&self, id: i64) -> Result<()> {
+        sqlx::query("UPDATE change_alerts SET delivered=1 WHERE id=?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+    pub async fn reports(&self) -> Result<Vec<serde_json::Value>> {
+        let rows: Vec<String> =
+            sqlx::query_scalar("SELECT report FROM tokens ORDER BY analysed_at DESC LIMIT 1000")
+                .fetch_all(&self.pool)
+                .await?;
+        rows.into_iter()
+            .map(|r| Ok(serde_json::from_str(&r)?))
+            .collect()
+    }
+    pub async fn history(&self, token: &str) -> Result<Vec<serde_json::Value>> {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT created_at,report FROM history WHERE token=? ORDER BY id DESC LIMIT 100",
+        )
+        .bind(token)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(|(date,r)| Ok(serde_json::json!({"date":date,"report":serde_json::from_str::<serde_json::Value>(&r)?}))).collect()
+    }
     pub async fn setting(&self, key: &str) -> Result<Option<String>> {
         Ok(sqlx::query_scalar("SELECT value FROM settings WHERE key=?")
             .bind(key)

@@ -120,6 +120,10 @@ impl Scanner {
             return Ok(());
         }
         if let Some(tg) = &self.telegram {
+            for (id, message) in self.store.change_alerts().await? {
+                tg.send(&message).await?;
+                self.store.delivered_change(id).await?;
+            }
             for (token, message) in self.store.pending_alerts().await? {
                 tg.send(&message).await?;
                 self.store.mark_delivered(&token).await?;
