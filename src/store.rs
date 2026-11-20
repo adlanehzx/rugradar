@@ -143,24 +143,6 @@ impl Store {
             .await?;
         Ok(())
     }
-    pub async fn reports(&self) -> Result<Vec<serde_json::Value>> {
-        let rows: Vec<String> =
-            sqlx::query_scalar("SELECT report FROM tokens ORDER BY analysed_at DESC LIMIT 1000")
-                .fetch_all(&self.pool)
-                .await?;
-        rows.into_iter()
-            .map(|r| Ok(serde_json::from_str(&r)?))
-            .collect()
-    }
-    pub async fn history(&self, token: &str) -> Result<Vec<serde_json::Value>> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
-            "SELECT created_at,report FROM history WHERE token=? ORDER BY id DESC LIMIT 100",
-        )
-        .bind(token)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(|(date,r)| Ok(serde_json::json!({"date":date,"report":serde_json::from_str::<serde_json::Value>(&r)?}))).collect()
-    }
     pub async fn setting(&self, key: &str) -> Result<Option<String>> {
         Ok(sqlx::query_scalar("SELECT value FROM settings WHERE key=?")
             .bind(key)
