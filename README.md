@@ -137,3 +137,7 @@ Sinon, le niveau de risque est `Indeterminate` et les alertes `min_score` sont
 bloquées. Le score numérique reste une estimation partielle. Un `owner()` renoncé
 ne désactive plus les avertissements sur les fonctions dangereuses : d'autres
 rôles peuvent conserver leurs permissions.
+
+`CONFIRMATIONS` (15 par défaut) retarde la découverte pour réduire les effets des
+réorganisations courtes. Les réorganisations profondes ne sont pas encore réparées
+automatiquement et les lectures d'analyse utilisent toujours l'état récent du RPC.

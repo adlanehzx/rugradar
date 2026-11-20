@@ -42,6 +42,7 @@ pub struct Config {
     pub poll_interval: Duration,
     /// How many blocks back to scan on start-up when the database is empty.
     pub start_lookback: u64,
+    pub confirmations: u64,
     /// Maximum block range requested per `eth_getLogs` call.
     pub max_block_range: u64,
     /// BNB spent in the simulated buy (wei).
@@ -93,6 +94,7 @@ impl Config {
             wrapped_native: parse("WRAPPED_NATIVE_ADDRESS", WBNB)?,
             database_url: var("DATABASE_URL").unwrap_or_else(|| "sqlite://rugradar.db".into()),
             poll_interval: Duration::from_secs(parse("POLL_INTERVAL_SECS", 6)?),
+            confirmations: parse("CONFIRMATIONS", 15)?,
             start_lookback: parse("START_LOOKBACK_BLOCKS", 200)?,
             max_block_range: parse("MAX_BLOCK_RANGE", 500)?,
             sim_buy_value,

@@ -43,7 +43,11 @@ impl Scanner {
 
     /// Runs forever: every `poll_interval`, scans the blocks produced since the last pass.
     pub async fn run(&self) -> Result<()> {
-        let head = self.chain.latest_block().await?;
+        let head = self
+            .chain
+            .latest_block()
+            .await?
+            .saturating_sub(self.config.confirmations);
         let mut next = match self.store.last_block().await? {
             Some(last) => last + 1,
             None => head.saturating_sub(self.config.start_lookback),
@@ -57,7 +61,11 @@ impl Scanner {
 
         loop {
             match self.chain.latest_block().await {
-                Ok(head) => next = self.scan_until(next, head).await,
+                Ok(head) => {
+                    next = self
+                        .scan_until(next, head.saturating_sub(self.config.confirmations))
+                        .await
+                }
                 Err(err) => warn!(%err, "cannot read the latest block"),
             }
             match self.store.due_pairs().await {
