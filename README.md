@@ -22,7 +22,7 @@ Chaque nouvelle paire est analysée en quelques secondes : honeypot, taxes cach�
 | --- | --- |
 | **Honeypot** | Achat → transfert → revente simulés dans un seul `eth_call` (voir ci-dessous) |
 | **Taxes** | Écart entre le prix annoncé par le router et ce qui est réellement reçu, à l'achat, à la vente et entre wallets |
-| **Liquidité** | Réserve en BNB de la paire et part des tokens LP brûlés (liquidité verrouillée ou non) |
+| **Liquidité** | Réserve en BNB de la paire et part des tokens LP brûlés (sans conclure au verrouillage externe) |
 | **Propriétaire** | `owner()` renoncé, actif ou absent |
 | **Fonctions dangereuses** | Analyse du bytecode : `mint`, blacklist, modification des taxes, pause du trading, limites de transaction |
 | **Code modifiable** | Présence de `DELEGATECALL` (proxy) ou de `SELFDESTRUCT` |
@@ -97,7 +97,7 @@ Moon Inu (MINU) — score 30/100
 
 • taxe à la vente élevée : 12.0 %
 • liquidité faible : 0.85 BNB
-• liquidité non verrouillée (0 % des LP brûlés)
+• LP brûlés : 0 % ; verrouillage externe non vérifié
 • propriétaire actif (ownership non renoncé)
 ```
 
@@ -138,9 +138,12 @@ au maximum est mise en file par token ; les échecs sont retentés. La livraison
 au moins une fois : une réponse réseau perdue après réception par Telegram peut
 entraîner un doublon. Les réanalyses ne génèrent pas encore d'alertes de changement.
 
-Le champ JSON `assessment.complete` indique si la simulation est disponible.
-Sinon, le niveau de risque est `Indeterminate` et les alertes `min_score` sont
-bloquées. Le score numérique reste une estimation partielle. Un `owner()` renoncé
+Le champ JSON `assessment.simulation_complete` indique si achat, transfert et vente
+ont réussi avec des mesures de taxes disponibles. `assessment.complete` reste
+faux : les contrôles n'établissent jamais une couverture de sécurité exhaustive.
+Un indice supérieur ou égal à 50 produit désormais un risque `Indeterminate`,
+pas un verdict rassurant. Les alertes `min_score` exigent une simulation complète.
+Le score numérique reste une estimation partielle non calibrée. Un `owner()` renoncé
 ne désactive plus les avertissements sur les fonctions dangereuses : d'autres
 rôles peuvent conserver leurs permissions.
 
@@ -220,3 +223,15 @@ ou de logs entraînent un basculement. Les autres appels seront retentés au pas
 suivant ; l'enrichissement utilise l'URL primaire.
 
 Validation supplémentaire : `python3 -m unittest discover -s dashboard -p 'test_*.py'`.
+
+## Limites de validation
+
+Les tests couvrent le calcul des taxes, les erreurs et booléens ERC-20, les tokens
+normaux/taxés/bloqués sur EVM locale, le suivi persistant, le contrôle d'accès
+Telegram, le secours RPC et les API du dashboard. Ils ne mesurent pas un taux de
+faux négatifs sur un corpus indépendant de scams réels. Ni les détenteurs complets,
+ni les permissions personnalisées, ni la sûreté du code des lockers ne sont établis.
+La simulation reste un seul appel depuis un contrat avec un montant donné ; elle
+ne reproduit pas toutes les adresses, tous les montants et les états futurs.
+Une absence de signal signifie seulement qu'aucun des contrôles exécutés n'a relevé
+ce signal. Les rapports de version antérieure à 2 sont identifiés comme anciens.
