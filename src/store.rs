@@ -210,6 +210,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn watched_changes_and_history_survive_reopen_and_deduplicate_delivery() {
+        let store = Store::open("sqlite::memory:").await.unwrap();
+        let mut f = facts();
+        let token = f.token.to_string();
+        store.save(10, &f, &assess(&f), false).await.unwrap();
+        store.watch(&token, true).await.unwrap();
+        f.liquidity_bnb = 0.1;
+        store.save(10, &f, &assess(&f), false).await.unwrap();
+        assert_eq!(store.change_alerts().await.unwrap().len(), 1);
+        // No new event for identical reports or changes to delivery metadata.
+        store.save(10, &f, &assess(&f), false).await.unwrap();
+        assert_eq!(store.change_alerts().await.unwrap().len(), 1);
+        let id = store.change_alerts().await.unwrap()[0].0;
+        store.delivered_change(id).await.unwrap();
+        assert!(store.change_alerts().await.unwrap().is_empty());
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM history")
+            .fetch_one(&store.pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 3);
+        store.watch(&token, false).await.unwrap();
+        f.liquidity_bnb = 0.01;
+        store.save(10, &f, &assess(&f), false).await.unwrap();
+        assert!(store.change_alerts().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn outbox_survives_reanalysis_and_reopen() {
         let path = std::env::temp_dir().join(format!("rugradar-outbox-{}.db", std::process::id()));
         let url = format!("sqlite://{}", path.display());
