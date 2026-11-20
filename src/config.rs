@@ -87,6 +87,16 @@ impl Config {
             alert_min_score <= 100,
             "ALERT_MIN_SCORE must be between 0 and 100"
         );
+        let alert_min_liquidity: f64 = parse("ALERT_MIN_LIQUIDITY_BNB", 0.0)?;
+        anyhow::ensure!(
+            alert_min_liquidity.is_finite() && alert_min_liquidity >= 0.0,
+            "ALERT_MIN_LIQUIDITY_BNB must be finite and nonnegative"
+        );
+        let alert_max_tax_bps: u32 = parse("ALERT_MAX_TAX_BPS", 10_000)?;
+        anyhow::ensure!(
+            alert_max_tax_bps <= 10_000,
+            "ALERT_MAX_TAX_BPS must be at most 10000"
+        );
         Ok(Self {
             rpc_url: var("RPC_URL")
                 .context("RPC_URL is required (a BNB Smart Chain HTTP endpoint)")?,
@@ -104,8 +114,8 @@ impl Config {
             telegram_chat_id: var("TELEGRAM_CHAT_ID"),
             alert_mode: parse("ALERT_MODE", AlertMode::MinScore)?,
             alert_min_score,
-            alert_min_liquidity: parse("ALERT_MIN_LIQUIDITY_BNB", 0.0)?,
-            alert_max_tax_bps: parse("ALERT_MAX_TAX_BPS", 10_000)?,
+            alert_min_liquidity,
+            alert_max_tax_bps,
         })
     }
 
