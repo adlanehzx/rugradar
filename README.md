@@ -151,3 +151,66 @@ l'envoi des alertes, sans arrêter le scanner ; `/resume` reprend aussi les mess
 en attente. Les commandes restent disponibles pendant la pause. `/watch` ajoute
 le token au suivi persistant et au cycle de réanalyse. `/unwatch` retire ce suivi
 personnel, sans retirer le token de l'index global du scanner.
+
+## Surveillance, interface locale et exploitation
+
+Le scanner conserve chaque analyse dans `history`. Pour les tokens de `/watchlist`,
+il met en file une alerte lorsque la liquidité baisse de plus de 20 % (si elle était
+supérieure à 0,1 BNB), le score perd au moins 10 points, un honeypot apparaît, les
+taxes achat/vente augmentent ou le propriétaire change. Les événements et leurs
+états de livraison sont persistants. Ce suivi périodique peut manquer une modification
+survenue puis annulée entre deux passages et la réserve varie aussi lors des swaps.
+
+`/filters` affiche les filtres ; `/filters min_score 75`,
+`/filters min_liquidity 1` et `/filters max_tax 1000` les modifient durablement.
+Les taxes sont en points de base : 1000 = 10 %. Ces filtres sélectionnent les alertes
+initiales ; les alertes de détérioration de la watchlist restent indépendantes.
+Les commandes ont une boucle dédiée et un clavier Telegram.
+
+`/deep <adresse>` collecte les emplacements implementation/admin ERC-1967, les
+capacités du code d'implémentation, les rôles enumerable admin/minter/pauser et les
+rôles observés via `RoleGranted` dont `hasRole` confirme l'activité. La collecte
+récente couvre 300 blocs, au maximum 20 détenteurs candidats et 20 rôles. Les
+soldes sont relus auprès du contrat ; cet échantillon ne constitue pas un classement
+complet des détenteurs, ni une preuve de l'absence de rôles cachés. Les tokens suivis
+reçoivent aussi ces données dans leurs rapports. L'enrichissement ne modifie pas
+encore le score. Les proxies beacon et les permissions personnalisées ne sont pas
+résolus. Les contrats peuvent renvoyer des données trompeuses.
+
+`LP_TIMELOCKS` accepte des adresses séparées par des virgules exposant `token()` et
+`releaseTime()` ; le scanner vérifie que le token déclaré est le LP et relève son
+solde. C'est une déclaration d'interface, **pas une validation du code du locker**.
+Sans adaptateur validé pour un protocole donné, le verrouillage reste inconnu.
+Sources des interfaces : https://eips.ethereum.org/EIPS/eip-1967 et
+https://docs.openzeppelin.com/contracts/5.x/access-control.
+
+Pour lancer l'interface : `python3 dashboard/server.py`, puis ouvrir
+http://127.0.0.1:8787. Recherche, filtre de risque, sélection watchlist, rapport JSON,
+historique du score et export CSV sont disponibles. Les routes `/api/tokens`,
+`/api/status`, `/api/history?token=...` sont en lecture seule. L'interface écoute
+uniquement sur localhost et affiche jusqu'à 2000 tokens et 200 points d'historique.
+Ne pas l'exposer directement sur Internet sans authentification.
+
+Sur Linux avec systemd utilisateur, `./scripts/install-service.sh` construit le
+binaire puis installe et active le scanner, le dashboard et une sauvegarde quotidienne.
+Ces services démarrent avec la session utilisateur ; sans session persistante, ils
+ne garantissent pas un démarrage avant connexion. Commandes utiles :
+
+```bash
+systemctl --user status rugradar rugradar-dashboard
+journalctl --user -u rugradar -f
+systemctl --user restart rugradar
+systemctl --user stop rugradar rugradar-dashboard
+systemctl --user start rugradar-backup.service
+```
+
+Les sauvegardes utilisent l'API SQLite online backup, contrôlent l'intégrité et
+conservent les 14 fichiers les plus récents dans `backups/`. Pour restaurer : arrêter
+le scanner, sauvegarder la base courante, déplacer ses éventuels fichiers WAL/SHM,
+copier la sauvegarde vers `rugradar.db`, puis redémarrer. L'historique n'est pas encore
+purgé automatiquement ; surveiller l'espace disque. `RPC_FALLBACK_URLS` ajoute des
+endpoints de secours : leur chain ID est contrôlé avant le scan. Les échecs de blocs
+ou de logs entraînent un basculement. Les autres appels seront retentés au passage
+suivant ; l'enrichissement utilise l'URL primaire.
+
+Validation supplémentaire : `python3 -m unittest discover -s dashboard -p 'test_*.py'`.

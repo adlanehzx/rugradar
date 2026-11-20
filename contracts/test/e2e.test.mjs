@@ -83,6 +83,7 @@ before(async () => {
   env = {
     RPC_URL: `http://127.0.0.1:${PORT}`,
     CHAIN_ID: "56",
+    CONFIRMATIONS: "0", // The local chain does not mine empty confirmation blocks.
     FACTORY_ADDRESS: await factory.getAddress(),
     ROUTER_ADDRESS: await router.getAddress(),
     WRAPPED_NATIVE_ADDRESS: await weth.getAddress(),
