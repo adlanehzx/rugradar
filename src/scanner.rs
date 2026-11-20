@@ -67,7 +67,7 @@ impl Scanner {
     /// Scans `[next, head]` range by range and returns the first block still to scan.
     /// Stops at the first failing range so it is retried on the next pass.
     async fn scan_until(&self, mut next: u64, head: u64) -> u64 {
-        for (from, to) in block_ranges(next, head, self.config.max_block_range) {
+        'ranges: for (from, to) in block_ranges(next, head, self.config.max_block_range) {
             let pairs = match self.chain.new_pairs(from, to).await {
                 Ok(pairs) => pairs,
                 Err(err) => {
@@ -77,12 +77,14 @@ impl Scanner {
             };
             for pair in pairs {
                 if let Err(err) = self.handle(pair).await {
-                    warn!(token = %pair.token, %err, "analysis failed");
+                    warn!(token = %pair.token, %err, "analysis failed; range will be retried");
+                    break 'ranges;
                 }
             }
             if let Err(err) = self.store.set_last_block(to).await {
-                // Not fatal: already analysed tokens are skipped if the range is scanned again.
+                // Retry this range; already saved tokens are skipped.
                 warn!(%err, "cannot save the scan cursor");
+                break;
             }
             next = to + 1;
         }
