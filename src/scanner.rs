@@ -141,7 +141,7 @@ impl Scanner {
 
         let wanted = match self.config.alert_mode {
             AlertMode::All => true,
-            AlertMode::MinScore => assessment.score >= self.config.alert_min_score,
+            AlertMode::MinScore => assessment.complete && assessment.score >= self.config.alert_min_score,
             AlertMode::Off => false,
         };
         let mut alerted = false;

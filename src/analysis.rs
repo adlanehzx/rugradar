@@ -134,6 +134,7 @@ impl RiskLevel {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
+    pub complete: bool,
     pub score: u8,
     pub level: RiskLevel,
     pub honeypot: bool,
@@ -262,6 +263,7 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         s.score.clamp(0, 100) as u8
     };
     Assessment {
+        complete: sim.outcome != SimOutcome::Unavailable,
         score,
         level: RiskLevel::from_score(score),
         honeypot,

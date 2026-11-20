@@ -22,6 +22,9 @@ pub fn format_alert(f: &TokenFacts, a: &Assessment) -> String {
         a.score,
         a.level.label()
     );
+    if !a.complete {
+        msg.push_str("⚪ Analyse incomplète : revente non vérifiée\n");
+    }
     msg.push_str(&format!(
         "💧 Liquidité : {:.2} BNB · LP brûlés : {:.0} %\n💸 Taxes : achat {} · vente {} · transfert {}\n",
         f.liquidity_bnb,
