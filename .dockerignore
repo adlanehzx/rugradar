@@ -1,0 +1,5 @@
+target
+.git
+.env
+*.db
+contracts/node_modules

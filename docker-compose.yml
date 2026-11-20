@@ -1,0 +1,15 @@
+services:
+  rugradar:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:///data/rugradar.db
+    volumes:
+      - rugradar-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  rugradar-data:
