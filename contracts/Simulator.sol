@@ -71,6 +71,8 @@ contract Simulator {
             return r;
         }
 
+        uint256 initialTokens = IERC20Min(token).balanceOf(address(this));
+
         // 2. Buy, measuring what actually arrives (fee-on-transfer aware).
         uint256 gasBefore = gasleft();
         try dex.swapExactETHForTokensSupportingFeeOnTransferTokens{value: msg.value}(
@@ -81,7 +83,7 @@ contract Simulator {
             r.status = 2;
             return r;
         }
-        uint256 held = IERC20Min(token).balanceOf(address(this));
+        uint256 held = IERC20Min(token).balanceOf(address(this)) - initialTokens;
         r.buyReceived = held;
         if (held == 0) {
             r.status = 5;
@@ -92,18 +94,22 @@ contract Simulator {
         uint256 probeAmount = held / 100;
         if (probeAmount > 0) {
             uint256 probeBefore = IERC20Min(token).balanceOf(PROBE);
-            try IERC20Min(token).transfer(PROBE, probeAmount) {
+            try IERC20Min(token).transfer(PROBE, probeAmount) returns (bool success) {
+                if (!success) { r.status = 6; return r; }
                 r.transferSent = probeAmount;
                 r.transferReceived = IERC20Min(token).balanceOf(PROBE) - probeBefore;
+                if (r.transferReceived == 0) { r.status = 6; return r; }
             } catch {
                 r.status = 6;
                 return r;
             }
-            held = IERC20Min(token).balanceOf(address(this));
+            held = IERC20Min(token).balanceOf(address(this)) - initialTokens;
         }
 
         // 4. Approve and sell everything that is left.
-        try IERC20Min(token).approve(router, type(uint256).max) {}
+        try IERC20Min(token).approve(router, type(uint256).max) returns (bool success) {
+            if (!success) { r.status = 3; return r; }
+        }
         catch {
             r.status = 3;
             return r;
@@ -126,6 +132,7 @@ contract Simulator {
         ) {
             r.sellGas = gasBefore - gasleft();
             r.sellReceived = address(this).balance - nativeBefore;
+            if (r.sellReceived == 0) { r.status = 4; return r; }
         } catch {
             r.status = 4;
             return r;

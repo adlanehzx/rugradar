@@ -146,3 +146,16 @@ test("token without liquidity: reported as no route", async () => {
   const r = await simulate(await token.getAddress());
   assert.equal(r.status, 1n);
 });
+
+test("transfer returning false is a failed transfer, not a successful simulation", async () => {
+  const a=artifacts.FalseReturnToken;
+  const token=await deploy(a.abi,a.evm.bytecode.object,1);
+  const address=await list(token);
+  assert.equal(Number((await simulate(address)).status),6);
+});
+test("approve returning false is detected before attempting a sale", async () => {
+  const a=artifacts.FalseReturnToken;
+  const token=await deploy(a.abi,a.evm.bytecode.object,2);
+  const address=await list(token);
+  assert.equal(Number((await simulate(address)).status),3);
+});

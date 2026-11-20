@@ -243,7 +243,8 @@ fn u256_ratio(a: U256, b: U256) -> f64 {
     if b.is_zero() {
         return 0.0;
     }
-    let scaled = a.saturating_mul(U256::from(1_000_000u32)) / b;
+    let scaled = alloy::primitives::U512::from(a) * alloy::primitives::U512::from(1_000_000u32)
+        / alloy::primitives::U512::from(b);
     (scaled.saturating_to::<u64>() as f64 / 1_000_000.0).min(1.0)
 }
 
