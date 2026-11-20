@@ -8,9 +8,9 @@ use anyhow::Result;
 use tracing::{info, warn};
 
 pub struct Scanner {
-    chain: Chain,
-    store: Store,
-    telegram: Option<Telegram>,
+    pub(crate) chain: Chain,
+    pub(crate) store: Store,
+    pub(crate) telegram: Option<Telegram>,
     config: Config,
 }
 
@@ -60,6 +60,9 @@ impl Scanner {
         );
 
         loop {
+            if let Err(err) = self.poll_commands().await {
+                warn!(%err, "Telegram command processing failed");
+            }
             match self.chain.latest_block().await {
                 Ok(head) => {
                     next = self
@@ -113,6 +116,9 @@ impl Scanner {
     }
 
     async fn deliver_alerts(&self) -> Result<()> {
+        if self.store.setting("paused").await?.as_deref() == Some("true") {
+            return Ok(());
+        }
         if let Some(tg) = &self.telegram {
             for (token, message) in self.store.pending_alerts().await? {
                 tg.send(&message).await?;

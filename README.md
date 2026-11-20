@@ -141,3 +141,13 @@ rôles peuvent conserver leurs permissions.
 `CONFIRMATIONS` (15 par défaut) retarde la découverte pour réduire les effets des
 réorganisations courtes. Les réorganisations profondes ne sont pas encore réparées
 automatiquement et les lectures d'analyse utilisent toujours l'état récent du RPC.
+
+## Commandes Telegram
+
+Dans le chat privé du bot : `/help`, `/check <adresse>`, `/watch <adresse>`,
+`/unwatch <adresse>`, `/watchlist`, `/stats`, `/pause` et `/resume`.
+Seul le propriétaire du chat privé configuré peut les utiliser. `/pause` suspend
+l'envoi des alertes, sans arrêter le scanner ; `/resume` reprend aussi les messages
+en attente. Les commandes restent disponibles pendant la pause. `/watch` ajoute
+le token au suivi persistant et au cycle de réanalyse. `/unwatch` retire ce suivi
+personnel, sans retirer le token de l'index global du scanner.

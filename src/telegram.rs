@@ -1,6 +1,6 @@
 //! Telegram alerts through the Bot API (`sendMessage`, HTML formatting).
 use crate::analysis::{Assessment, TokenFacts};
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
@@ -69,6 +69,22 @@ impl Telegram {
         })
     }
 
+    pub async fn updates(&self, offset: i64) -> Result<Vec<serde_json::Value>> {
+        let response = self.client.post(format!("https://api.telegram.org/bot{}/getUpdates", self.token))
+            .json(&serde_json::json!({"offset":offset,"timeout":0,"allowed_updates":["message"],"limit":20}))
+            .send().await.map_err(|_| anyhow::anyhow!("Telegram polling transport error"))?;
+        let body: serde_json::Value = response.json().await?;
+        anyhow::ensure!(body["ok"] == true, "Telegram polling rejected");
+        Ok(body["result"].as_array().cloned().unwrap_or_default())
+    }
+    pub fn authorized(&self, message: &serde_json::Value) -> bool {
+        message["chat"]["type"] == "private"
+            && message["chat"]["id"]
+                .as_i64()
+                .is_some_and(|id| id.to_string() == self.chat_id)
+            && message["from"]["id"] == message["chat"]["id"]
+    }
+
     pub async fn send(&self, text: &str) -> Result<()> {
         let url = format!("https://api.telegram.org/bot{}/sendMessage", self.token);
         let body = serde_json::json!({
@@ -83,7 +99,7 @@ impl Telegram {
             .json(&body)
             .send()
             .await
-            .context("Telegram request failed")?;
+            .map_err(|_| anyhow::anyhow!("Telegram request failed"))?;
         anyhow::ensure!(
             res.status().is_success(),
             "Telegram returned {}",
@@ -99,6 +115,25 @@ mod tests {
     use crate::analysis::{Ownership, SimOutcome, Simulation, assess};
     use crate::bytecode::BytecodeReport;
     use alloy::primitives::Address;
+
+    #[test]
+    fn only_configured_private_owner_can_run_commands() {
+        let tg = Telegram::new("dummy".into(), "123".into()).unwrap();
+        assert!(tg.authorized(
+            &serde_json::json!({"chat":{"id":123,"type":"private"},"from":{"id":123}})
+        ));
+        assert!(!tg.authorized(
+            &serde_json::json!({"chat":{"id":456,"type":"private"},"from":{"id":456}})
+        ));
+        assert!(
+            !tg.authorized(
+                &serde_json::json!({"chat":{"id":123,"type":"group"},"from":{"id":123}})
+            )
+        );
+        assert!(!tg.authorized(
+            &serde_json::json!({"chat":{"id":123,"type":"private"},"from":{"id":456}})
+        ));
+    }
 
     #[test]
     fn alert_contains_key_information_and_escapes_html() {

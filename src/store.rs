@@ -129,6 +129,34 @@ impl Store {
         Ok(())
     }
 
+    pub async fn setting(&self, key: &str) -> Result<Option<String>> {
+        Ok(sqlx::query_scalar("SELECT value FROM settings WHERE key=?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await?)
+    }
+    pub async fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        sqlx::query("INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+            .bind(key).bind(value).execute(&self.pool).await?;
+        Ok(())
+    }
+    pub async fn watch(&self, token: &str, enabled: bool) -> Result<()> {
+        let sql = if enabled {
+            "INSERT OR IGNORE INTO watchlist(token) VALUES (?)"
+        } else {
+            "DELETE FROM watchlist WHERE token=?"
+        };
+        sqlx::query(sql).bind(token).execute(&self.pool).await?;
+        Ok(())
+    }
+    pub async fn watches(&self) -> Result<Vec<String>> {
+        Ok(
+            sqlx::query_scalar("SELECT token FROM watchlist ORDER BY added_at LIMIT 100")
+                .fetch_all(&self.pool)
+                .await?,
+        )
+    }
+
     pub async fn stats(&self) -> Result<(i64, i64)> {
         let row: (i64, i64) =
             sqlx::query_as("SELECT COUNT(*), COALESCE(SUM(honeypot), 0) FROM tokens")

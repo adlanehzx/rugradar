@@ -3,6 +3,7 @@ mod abi;
 mod analysis;
 mod bytecode;
 mod chain;
+mod commands;
 mod config;
 mod scanner;
 mod store;
