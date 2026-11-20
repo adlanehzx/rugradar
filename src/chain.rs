@@ -1,0 +1,216 @@
+//! Everything that talks to the BNB Smart Chain RPC.
+use crate::abi::{IERC20Meta, IOwnable, IPancakeFactory, IPancakePair, ISimulator};
+use crate::analysis::{Ownership, SimOutcome, Simulation, tax_bps};
+use crate::bytecode::{self, BytecodeReport};
+use crate::config::Config;
+use alloy::{
+    network::TransactionBuilder,
+    primitives::{Address, U256, address},
+    providers::{DynProvider, Provider, ProviderBuilder},
+    rpc::types::{Filter, TransactionRequest, state::StateOverridesBuilder},
+    sol_types::{SolCall, SolEvent},
+};
+use anyhow::{Context, Result};
+
+/// Arbitrary, empty addresses used for the simulated call.
+const SIMULATOR: Address = address!("00000000000000000000000000000000005151aa");
+const CALLER: Address = address!("0000000000000000000000000000000000c0ffee");
+const DEAD: Address = address!("000000000000000000000000000000000000dEaD");
+
+/// Runtime bytecode of `contracts/Simulator.sol` (rebuilt with `npm run build` in contracts/).
+const SIMULATOR_RUNTIME: &str = include_str!("simulator/Simulator.bin");
+
+/// A pair listed on PancakeSwap V2 against WBNB.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NewPair {
+    pub token: Address,
+    pub pair: Address,
+    pub block: u64,
+}
+
+#[derive(Clone)]
+pub struct Chain {
+    provider: DynProvider,
+    simulator_code: Vec<u8>,
+    factory: Address,
+    router: Address,
+    wrapped_native: Address,
+}
+
+impl Chain {
+    pub fn connect(config: &Config) -> Result<Self> {
+        let url = config
+            .rpc_url
+            .parse()
+            .context("RPC_URL is not a valid URL")?;
+        let provider = ProviderBuilder::new().connect_http(url).erased();
+        let simulator_code =
+            alloy::hex::decode(SIMULATOR_RUNTIME.trim()).context("invalid Simulator.bin")?;
+        Ok(Self {
+            provider,
+            simulator_code,
+            factory: config.factory,
+            router: config.router,
+            wrapped_native: config.wrapped_native,
+        })
+    }
+
+    pub async fn chain_id(&self) -> Result<u64> {
+        Ok(self.provider.get_chain_id().await?)
+    }
+
+    pub async fn latest_block(&self) -> Result<u64> {
+        Ok(self.provider.get_block_number().await?)
+    }
+
+    /// `PairCreated` events in `[from, to]`, keeping only TOKEN/WBNB pairs.
+    pub async fn new_pairs(&self, from: u64, to: u64) -> Result<Vec<NewPair>> {
+        let filter = Filter::new()
+            .address(self.factory)
+            .event_signature(IPancakeFactory::PairCreated::SIGNATURE_HASH)
+            .from_block(from)
+            .to_block(to);
+        let logs = self.provider.get_logs(&filter).await?;
+        let mut pairs = Vec::new();
+        for log in logs {
+            let block = log.block_number.unwrap_or(to);
+            let Ok(event) = IPancakeFactory::PairCreated::decode_log(&log.inner) else {
+                continue;
+            };
+            let (t0, t1) = (event.token0, event.token1);
+            let native = self.wrapped_native;
+            let token = match (t0 == native, t1 == native) {
+                (true, false) => t1,
+                (false, true) => t0,
+                _ => continue, // not paired with the wrapped native token
+            };
+            pairs.push(NewPair {
+                token,
+                pair: event.pair,
+                block,
+            });
+        }
+        Ok(pairs)
+    }
+
+    /// Existing TOKEN/WBNB pair, if any.
+    pub async fn pair_for(&self, token: Address) -> Result<Option<Address>> {
+        let pair = IPancakeFactory::new(self.factory, &self.provider)
+            .getPair(token, self.wrapped_native)
+            .call()
+            .await?;
+        Ok((pair != Address::ZERO).then_some(pair))
+    }
+
+    pub async fn token_metadata(&self, token: Address) -> (String, String, u8) {
+        let erc20 = IERC20Meta::new(token, &self.provider);
+        let name = erc20.name().call().await.unwrap_or_else(|_| "?".into());
+        let symbol = erc20.symbol().call().await.unwrap_or_else(|_| "?".into());
+        let decimals = erc20.decimals().call().await.unwrap_or(18);
+        (name, symbol, decimals)
+    }
+
+    pub async fn ownership(&self, token: Address) -> Ownership {
+        match IOwnable::new(token, &self.provider).owner().call().await {
+            Ok(owner) if owner == Address::ZERO || owner == DEAD => Ownership::Renounced,
+            Ok(owner) => Ownership::Owned(owner),
+            Err(_) => Ownership::NoOwnerFunction,
+        }
+    }
+
+    pub async fn bytecode(&self, token: Address) -> Result<BytecodeReport> {
+        let code = self.provider.get_code_at(token).await?;
+        Ok(bytecode::analyze(&code))
+    }
+
+    /// Wrapped-native reserve of the pair (in BNB) and the share of LP tokens that were burned.
+    pub async fn liquidity(&self, pair: Address, token: Address) -> Result<(f64, f64)> {
+        let lp = IPancakePair::new(pair, &self.provider);
+        let reserves = lp.getReserves().call().await?;
+        let native_reserve = if token < self.wrapped_native {
+            reserves.reserve1
+        } else {
+            reserves.reserve0
+        };
+        let liquidity_bnb = native_reserve.to::<u128>() as f64 / 1e18;
+
+        let supply = lp.totalSupply().call().await?;
+        let burned = lp.balanceOf(DEAD).call().await? + lp.balanceOf(Address::ZERO).call().await?;
+        let ratio = if supply.is_zero() {
+            0.0
+        } else {
+            u256_ratio(burned, supply)
+        };
+        Ok((liquidity_bnb, ratio))
+    }
+
+    /// Buys, transfers and sells the token inside a single `eth_call`, with the Simulator
+    /// bytecode injected through a state override. Costs nothing and needs no wallet.
+    pub async fn simulate(&self, token: Address, buy_value: U256) -> Simulation {
+        let data = ISimulator::simulateCall {
+            router: self.router,
+            token,
+            wrappedNative: self.wrapped_native,
+        }
+        .abi_encode();
+        let tx = TransactionRequest::default()
+            .with_from(CALLER)
+            .with_to(SIMULATOR)
+            .with_value(buy_value)
+            .with_gas_limit(8_000_000)
+            .with_input(data);
+        let overrides = StateOverridesBuilder::default()
+            .with_code(SIMULATOR, self.simulator_code.clone())
+            .with_balance(CALLER, buy_value * U256::from(10u8))
+            .build();
+
+        let raw = match self.provider.call(tx).overrides(overrides).await {
+            Ok(raw) => raw,
+            Err(err) => {
+                tracing::debug!(%token, %err, "simulation call failed");
+                return Simulation::unavailable();
+            }
+        };
+        match ISimulator::simulateCall::abi_decode_returns(&raw) {
+            Ok(r) => Simulation {
+                outcome: SimOutcome::from_status(r.status),
+                buy_tax_bps: tax_bps(r.buyExpected, r.buyReceived),
+                sell_tax_bps: tax_bps(r.sellExpected, r.sellReceived),
+                transfer_tax_bps: tax_bps(r.transferSent, r.transferReceived),
+            },
+            Err(_) => Simulation::unavailable(),
+        }
+    }
+}
+
+/// `a / b` as a float in [0, 1] without overflowing f64 on 256-bit values.
+fn u256_ratio(a: U256, b: U256) -> f64 {
+    if b.is_zero() {
+        return 0.0;
+    }
+    let scaled = a.saturating_mul(U256::from(1_000_000u32)) / b;
+    (scaled.saturating_to::<u64>() as f64 / 1_000_000.0).min(1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_simulator_bytecode_is_valid_hex() {
+        let code = alloy::hex::decode(SIMULATOR_RUNTIME.trim()).unwrap();
+        assert!(code.len() > 1_000);
+        let report = bytecode::analyze(&code);
+        assert!(report.is_contract);
+        assert!(!report.has_selfdestruct);
+    }
+
+    #[test]
+    fn ratio_handles_large_values() {
+        let supply = U256::from(10u8).pow(U256::from(30u8));
+        assert_eq!(u256_ratio(supply, supply), 1.0);
+        assert_eq!(u256_ratio(supply / U256::from(4u8), supply), 0.25);
+        assert_eq!(u256_ratio(U256::ZERO, supply), 0.0);
+        assert_eq!(u256_ratio(U256::from(1u8), U256::ZERO), 0.0);
+    }
+}
