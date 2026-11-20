@@ -116,10 +116,16 @@ impl Store {
     }
 
     pub async fn mark_delivered(&self, token: &str) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
         sqlx::query("UPDATE alert_outbox SET delivered = 1 WHERE token = ?")
             .bind(token)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
+        sqlx::query("UPDATE tokens SET alerted = 1 WHERE token = ?")
+            .bind(token)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
         Ok(())
     }
 
