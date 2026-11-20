@@ -112,8 +112,8 @@ test("plain token: simulation passes with no tax", async () => {
   assert.equal(assessment.honeypot, false);
   // The deployer still holds the LP tokens, and a plain OpenZeppelin ERC-20 has no owner().
   assert.deepEqual(assessment.findings, [
-    "liquidité non verrouillée (0 % des LP brûlés)",
-    "pas de fonction owner() (rôles à vérifier)",
+    "LP brûlés : 0 % ; verrouillage externe non vérifié",
+    "owner() non confirmé ; absence de permissions non démontrée",
   ]);
   assert.equal(assessment.score, 85);
 });

@@ -236,7 +236,7 @@ impl Scanner {
             .unwrap_or(self.config.alert_max_tax_bps);
         let wanted = match self.config.alert_mode {
             AlertMode::All => true,
-            AlertMode::MinScore => assessment.complete && assessment.score >= min_score,
+            AlertMode::MinScore => assessment.simulation_complete && assessment.score >= min_score,
             AlertMode::Off => false,
         };
         self.store

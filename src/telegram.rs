@@ -16,13 +16,13 @@ fn tax(bps: Option<u32>) -> String {
 /// Builds the alert text. Kept separate from sending so it can be unit-tested.
 pub fn format_alert(f: &TokenFacts, a: &Assessment) -> String {
     let mut msg = format!(
-        "<b>{}</b> ({}) — score <b>{}/100</b>\n{}\n\n",
+        "<b>{}</b> ({}) — indice heuristique <b>{}/100</b>\n{}\n\n",
         escape(&f.name),
         escape(&f.symbol),
         a.score,
         a.level.label()
     );
-    if !a.complete {
+    if !a.simulation_complete {
         msg.push_str("⚪ Analyse incomplète : revente non vérifiée\n");
     }
     msg.push_str(&format!(
@@ -34,13 +34,14 @@ pub fn format_alert(f: &TokenFacts, a: &Assessment) -> String {
         tax(f.simulation.transfer_tax_bps),
     ));
     if a.findings.is_empty() {
-        msg.push_str("\n✅ Aucun signal d'alerte détecté\n");
+        msg.push_str("\nAucun signal détecté par les contrôles exécutés\n");
     } else {
         msg.push('\n');
         for finding in &a.findings {
             msg.push_str(&format!("• {}\n", escape(finding)));
         }
     }
+    msg.push_str("\n⚪ Couverture partielle : permissions, détenteurs et lockers non validés exhaustivement. Cet indice n'est pas une probabilité de sécurité.\n");
     msg.push_str(&format!(
         "\n<a href=\"https://bscscan.com/token/{token}\">BscScan</a> · \
          <a href=\"https://dexscreener.com/bsc/{pair}\">DexScreener</a>\n<code>{token}</code>",

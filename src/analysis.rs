@@ -1,7 +1,7 @@
 //! Turns raw on-chain facts about a token into a risk score and human-readable findings.
 //! Everything here is pure, so the scoring rules are fully unit-tested.
 use crate::bytecode::{BytecodeReport, Capability};
-use alloy::primitives::{Address, U256};
+use alloy::primitives::{Address, U256, U512};
 use serde::Serialize;
 
 /// Outcome of the buy → transfer → sell simulation (mirrors `Simulator.sol` status codes).
@@ -70,8 +70,10 @@ pub fn tax_bps(expected: U256, received: U256) -> Option<u32> {
     if received >= expected {
         return Some(0);
     }
-    let lost = (expected - received) * U256::from(10_000u32);
-    let bps = (lost + expected / U256::from(2u8)) / expected;
+    let expected = U512::from(expected);
+    let received = U512::from(received);
+    let lost = (expected - received) * U512::from(10_000u32);
+    let bps = (lost + expected / U512::from(2u8)) / expected;
     Some(bps.saturating_to::<u32>())
 }
 
@@ -137,7 +139,11 @@ impl RiskLevel {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
+    /// Full security coverage is never established by these heuristics.
     pub complete: bool,
+    pub simulation_complete: bool,
+    pub unknowns: Vec<String>,
+    pub scoring_version: u8,
     pub score: u8,
     pub level: RiskLevel,
     pub honeypot: bool,
@@ -198,11 +204,13 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         SimOutcome::BuyFailed => s.penalise(40, "l'achat échoue en simulation"),
         SimOutcome::Unavailable => s.penalise(10, "simulation impossible avec ce RPC"),
         SimOutcome::TransferFailed => {
-            s.note("HONEYPOT : les transferts entre wallets sont bloqués")
+            s.note("BLOCAGE OBSERVÉ EN SIMULATION : les transferts entre wallets sont bloqués")
         }
-        SimOutcome::NothingReceived => s.note("HONEYPOT : l'achat ne livre aucun token"),
+        SimOutcome::NothingReceived => {
+            s.note("BLOCAGE OBSERVÉ EN SIMULATION : l'achat ne livre aucun token")
+        }
         SimOutcome::ApproveFailed | SimOutcome::SellFailed => {
-            s.note("HONEYPOT : impossible de revendre après achat")
+            s.note("BLOCAGE OBSERVÉ EN SIMULATION : impossible de revendre après achat")
         }
     }
 
@@ -235,7 +243,7 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         s.penalise(
             15,
             format!(
-                "liquidité non verrouillée ({:.0} % des LP brûlés)",
+                "LP brûlés : {:.0} % ; verrouillage externe non vérifié",
                 f.lp_burned_ratio * 100.0
             ),
         );
@@ -243,7 +251,9 @@ pub fn assess(f: &TokenFacts) -> Assessment {
 
     match f.ownership {
         Ownership::Owned(_) => s.penalise(10, "propriétaire actif (ownership non renoncé)"),
-        Ownership::NoOwnerFunction => s.note("pas de fonction owner() (rôles à vérifier)"),
+        Ownership::NoOwnerFunction => {
+            s.note("owner() non confirmé ; absence de permissions non démontrée")
+        }
         Ownership::Renounced => {}
     }
     // owner() does not establish whether other privileged roles remain.
@@ -253,7 +263,10 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         }
     }
     if f.bytecode.has_delegatecall {
-        s.penalise(15, "code modifiable (delegatecall / proxy)");
+        s.penalise(
+            15,
+            "delegatecall détecté ; mécanisme de modification à vérifier",
+        );
     }
     if f.bytecode.has_selfdestruct {
         s.penalise(10, "contient selfdestruct");
@@ -265,10 +278,24 @@ pub fn assess(f: &TokenFacts) -> Assessment {
     } else {
         s.score.clamp(0, 100) as u8
     };
+    let simulation_complete = sim.outcome == SimOutcome::Ok
+        && sim.buy_tax_bps.is_some()
+        && sim.sell_tax_bps.is_some()
+        && sim.transfer_tax_bps.is_some();
+    let unknowns = vec![
+        "Simulation à un seul montant, avec une adresse de contrat et dans un seul appel".into(),
+        "Revente future, délais et restrictions sélectives non établis".into(),
+        "Permissions exhaustives, concentration complète et code des lockers non vérifiés".into(),
+        "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+            .into(),
+    ];
     Assessment {
-        complete: sim.outcome != SimOutcome::Unavailable,
+        complete: false,
+        simulation_complete,
+        unknowns,
+        scoring_version: 2,
         score,
-        level: if sim.outcome == SimOutcome::Unavailable {
+        level: if sim.outcome == SimOutcome::Unavailable || score >= 50 {
             RiskLevel::Indeterminate
         } else {
             RiskLevel::from_score(score)
@@ -309,6 +336,20 @@ mod tests {
     }
 
     #[test]
+    fn unknown_coverage_never_becomes_a_low_risk_verdict() {
+        let a = assess(&safe_token());
+        assert!(a.simulation_complete);
+        assert!(!a.complete);
+        assert_eq!(a.level, RiskLevel::Indeterminate);
+        assert!(!a.unknowns.is_empty());
+    }
+    #[test]
+    fn maximum_uint_tax_does_not_overflow() {
+        assert_eq!(tax_bps(U256::MAX, U256::ZERO), Some(10000));
+        assert_eq!(tax_bps(U256::MAX, U256::MAX / U256::from(2)), Some(5000));
+    }
+
+    #[test]
     fn tax_is_rounded_basis_points() {
         assert_eq!(tax_bps(U256::from(1000u32), U256::from(950u32)), Some(500));
         assert_eq!(
@@ -331,7 +372,7 @@ mod tests {
     fn clean_token_scores_100() {
         let a = assess(&safe_token());
         assert_eq!(a.score, 100);
-        assert_eq!(a.level, RiskLevel::Low);
+        assert_eq!(a.level, RiskLevel::Indeterminate);
         assert!(a.findings.is_empty());
     }
 
@@ -343,7 +384,7 @@ mod tests {
         assert!(a.honeypot);
         assert_eq!(a.score, 0);
         assert_eq!(a.level, RiskLevel::Critical);
-        assert!(a.findings[0].starts_with("HONEYPOT"));
+        assert!(a.findings[0].starts_with("BLOCAGE OBSERVÉ"));
     }
 
     #[test]
