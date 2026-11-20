@@ -43,10 +43,10 @@ impl Scanner {
 
     /// Runs forever: every `poll_interval`, scans the blocks produced since the last pass.
     pub async fn run(&self) -> Result<()> {
-        if let Some(tg) = &self.telegram {
-            if let Err(err) = tg.register_commands().await {
-                warn!(%err,"cannot register Telegram menu");
-            }
+        if let Some(tg) = &self.telegram
+            && let Err(err) = tg.register_commands().await
+        {
+            warn!(%err,"cannot register Telegram menu");
         }
         let commands = async {
             loop {

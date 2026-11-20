@@ -160,7 +160,15 @@ impl Store {
         } else {
             "DELETE FROM watchlist WHERE token=?"
         };
-        sqlx::query(sql).bind(token).execute(&self.pool).await?;
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(sql).bind(token).execute(&mut *tx).await?;
+        if !enabled {
+            sqlx::query("UPDATE change_alerts SET delivered=1 WHERE token=?")
+                .bind(token)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
         Ok(())
     }
     pub async fn watches(&self) -> Result<Vec<String>> {
@@ -211,13 +219,17 @@ mod tests {
 
     #[tokio::test]
     async fn watched_changes_and_history_survive_reopen_and_deduplicate_delivery() {
-        let store = Store::open("sqlite::memory:").await.unwrap();
+        let path = std::env::temp_dir().join(format!("rugradar-changes-{}.db", std::process::id()));
+        let url = format!("sqlite://{}", path.display());
+        let store = Store::open(&url).await.unwrap();
         let mut f = facts();
         let token = f.token.to_string();
         store.save(10, &f, &assess(&f), false).await.unwrap();
         store.watch(&token, true).await.unwrap();
         f.liquidity_bnb = 0.1;
         store.save(10, &f, &assess(&f), false).await.unwrap();
+        store.pool.close().await;
+        let store = Store::open(&url).await.unwrap();
         assert_eq!(store.change_alerts().await.unwrap().len(), 1);
         // No new event for identical reports or changes to delivery metadata.
         store.save(10, &f, &assess(&f), false).await.unwrap();
@@ -234,6 +246,8 @@ mod tests {
         f.liquidity_bnb = 0.01;
         store.save(10, &f, &assess(&f), false).await.unwrap();
         assert!(store.change_alerts().await.unwrap().is_empty());
+        store.pool.close().await;
+        std::fs::remove_file(path).unwrap();
     }
 
     #[tokio::test]

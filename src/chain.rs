@@ -268,12 +268,11 @@ mod tests {
                             return;
                         }
                         bytes.extend_from_slice(&buf[..n]);
-                        if let Some(start) = bytes.windows(4).position(|s| s == b"\r\n\r\n") {
-                            if let Ok(body) =
+                        if let Some(start) = bytes.windows(4).position(|s| s == b"\r\n\r\n")
+                            && let Ok(body) =
                                 serde_json::from_slice::<serde_json::Value>(&bytes[start + 4..])
-                            {
-                                break body;
-                            }
+                        {
+                            break body;
                         }
                     };
                     let result = if request["method"] == "eth_chainId" {
