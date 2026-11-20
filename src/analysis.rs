@@ -106,6 +106,7 @@ pub struct TokenFacts {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum RiskLevel {
+    Indeterminate,
     Low,
     Medium,
     High,
@@ -124,6 +125,7 @@ impl RiskLevel {
 
     pub fn label(self) -> &'static str {
         match self {
+            Self::Indeterminate => "⚪ Risque indéterminé",
             Self::Low => "🟢 Risque faible",
             Self::Medium => "🟡 Risque moyen",
             Self::High => "🟠 Risque élevé",
@@ -265,7 +267,11 @@ pub fn assess(f: &TokenFacts) -> Assessment {
     Assessment {
         complete: sim.outcome != SimOutcome::Unavailable,
         score,
-        level: RiskLevel::from_score(score),
+        level: if sim.outcome == SimOutcome::Unavailable {
+            RiskLevel::Indeterminate
+        } else {
+            RiskLevel::from_score(score)
+        },
         honeypot,
         findings: s.findings,
     }
