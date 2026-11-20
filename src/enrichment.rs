@@ -118,6 +118,60 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
             }
         }
     }
+    // Enumerable access control can expose roles granted before this log window.
+    let mut enumerable_roles = Vec::new();
+    for role in [
+        alloy::primitives::B256::ZERO,
+        keccak256("MINTER_ROLE"),
+        keccak256("PAUSER_ROLE"),
+    ] {
+        let role_arg = alloy::hex::encode(role);
+        if let Some(count) = call(url, token, "getRoleMemberCount(bytes32)", &role_arg)
+            .await
+            .ok()
+            .and_then(|v| uint(&v))
+        {
+            for i in 0..count.saturating_to::<u64>().min(10) {
+                let args = format!("{}{:064x}", role_arg, i);
+                if let Some(account) = call(url, token, "getRoleMember(bytes32,uint256)", &args)
+                    .await
+                    .ok()
+                    .and_then(|v| address_word(&v))
+                {
+                    enumerable_roles.push(json!({"role":role,"account":account}));
+                }
+            }
+        }
+    }
+    result["enumerable_roles"] = json!(enumerable_roles);
+    let mut locks = Vec::new();
+    if let Ok(addresses) = std::env::var("LP_TIMELOCKS") {
+        for locker in addresses
+            .split(',')
+            .filter_map(|s| s.trim().parse::<Address>().ok())
+            .take(10)
+        {
+            let declared = call(url, locker, "token()", "")
+                .await
+                .ok()
+                .and_then(|v| address_word(&v));
+            let release = call(url, locker, "releaseTime()", "")
+                .await
+                .ok()
+                .and_then(|v| uint(&v));
+            let args = format!("{:0>64}", alloy::hex::encode(locker));
+            let balance = call(url, pair, "balanceOf(address)", &args)
+                .await
+                .ok()
+                .and_then(|v| uint(&v));
+            if declared == Some(pair) {
+                locks.push(json!({"address":locker,"lp_balance":balance.map(|b|b.to_string()),"release_unix":release.map(|t|t.to_string()),"verification":"declared_interface_only","warning":"The interface does not prove immutable locking logic"}));
+            }
+        }
+    }
+    if !locks.is_empty() {
+        result["locks"] = json!({"status":"declared_timelocks","items":locks});
+    }
     let supply = call(url, token, "totalSupply()", "")
         .await
         .ok()

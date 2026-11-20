@@ -86,24 +86,22 @@ impl Telegram {
     }
 
     pub async fn send(&self, text: &str) -> Result<()> {
-        // Bound on-chain metadata and deep reports to Telegram's message limit.
-        // Split at newlines so HTML entities and generated tags remain intact.
-        if text.chars().count() > 3900 {
-            for chunk in text.as_bytes().chunks(3000) {
-                let plain = String::from_utf8_lossy(chunk);
-                self.send_part(&escape(&plain.replace(['<', '>'], "")))
+        if text.encode_utf16().count() > 3500 {
+            let chars: Vec<char> = text.chars().collect();
+            for chunk in chars.chunks(1000) {
+                self.send_part(&chunk.iter().collect::<String>(), false)
                     .await?;
             }
             return Ok(());
         }
-        self.send_part(text).await
+        self.send_part(text, true).await
     }
-    async fn send_part(&self, text: &str) -> Result<()> {
+    async fn send_part(&self, text: &str, html: bool) -> Result<()> {
         let url = format!("https://api.telegram.org/bot{}/sendMessage", self.token);
         let body = serde_json::json!({
             "chat_id": self.chat_id,
             "text": text,
-            "parse_mode": "HTML",
+            "parse_mode": if html { "HTML" } else { "" },
             "disable_web_page_preview": true,
             "reply_markup": {"keyboard":[[{"text":"/stats"},{"text":"/watchlist"}],[{"text":"/filters"},{"text":"/help"}],[{"text":"/pause"},{"text":"/resume"}]],"resize_keyboard":true},
         });
@@ -119,6 +117,11 @@ impl Telegram {
             "Telegram returned {}",
             res.status()
         );
+        let body: serde_json::Value = res
+            .json()
+            .await
+            .map_err(|_| anyhow::anyhow!("Invalid Telegram response"))?;
+        anyhow::ensure!(body["ok"] == true, "Telegram message rejected");
         Ok(())
     }
 }
