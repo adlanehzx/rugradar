@@ -41,6 +41,7 @@ impl Store {
         Ok(())
     }
 
+    #[cfg(test)]
     pub async fn is_known(&self, token: &str) -> Result<bool> {
         let row: Option<(i64,)> = sqlx::query_as("SELECT 1 FROM tokens WHERE token = ?1")
             .bind(token)
@@ -86,25 +87,39 @@ impl Store {
         let rows: Vec<(String, String, i64)> = sqlx::query_as(
             "SELECT token, pair, block FROM tokens WHERE next_check <= unixepoch() ORDER BY next_check LIMIT 100"
         ).fetch_all(&self.pool).await?;
-        rows.into_iter().map(|(token, pair, block)| Ok(crate::chain::NewPair {
-            token: token.parse()?, pair: pair.parse()?, block: block as u64,
-        })).collect()
+        rows.into_iter()
+            .map(|(token, pair, block)| {
+                Ok(crate::chain::NewPair {
+                    token: token.parse()?,
+                    pair: pair.parse()?,
+                    block: block as u64,
+                })
+            })
+            .collect()
     }
 
     pub async fn queue_alert(&self, token: &str, message: &str) -> Result<()> {
         sqlx::query("INSERT OR IGNORE INTO alert_outbox(token, message) VALUES (?, ?)")
-            .bind(token).bind(message).execute(&self.pool).await?;
+            .bind(token)
+            .bind(message)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
     pub async fn pending_alerts(&self) -> Result<Vec<(String, String)>> {
-        Ok(sqlx::query_as("SELECT token, message FROM alert_outbox WHERE delivered = 0 LIMIT 100")
-            .fetch_all(&self.pool).await?)
+        Ok(
+            sqlx::query_as("SELECT token, message FROM alert_outbox WHERE delivered = 0 LIMIT 100")
+                .fetch_all(&self.pool)
+                .await?,
+        )
     }
 
     pub async fn mark_delivered(&self, token: &str) -> Result<()> {
         sqlx::query("UPDATE alert_outbox SET delivered = 1 WHERE token = ?")
-            .bind(token).execute(&self.pool).await?;
+            .bind(token)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -156,7 +171,10 @@ mod tests {
         store.queue_alert(&token, "first").await.unwrap();
         store.save(43, &f, &assess(&f), false).await.unwrap();
         store.queue_alert(&token, "duplicate").await.unwrap();
-        assert_eq!(store.pending_alerts().await.unwrap(), vec![(token.clone(), "first".into())]);
+        assert_eq!(
+            store.pending_alerts().await.unwrap(),
+            vec![(token.clone(), "first".into())]
+        );
         store.pool.close().await;
         let reopened = Store::open(&url).await.unwrap();
         assert_eq!(reopened.pending_alerts().await.unwrap().len(), 1);

@@ -61,11 +61,13 @@ impl Scanner {
                 Err(err) => warn!(%err, "cannot read the latest block"),
             }
             match self.store.due_pairs().await {
-                Ok(pairs) => for pair in pairs {
-                    if let Err(err) = self.handle(pair).await {
-                        warn!(%err, token = %pair.token, "scheduled reanalysis failed");
+                Ok(pairs) => {
+                    for pair in pairs {
+                        if let Err(err) = self.handle(pair).await {
+                            warn!(%err, token = %pair.token, "scheduled reanalysis failed");
+                        }
                     }
-                },
+                }
                 Err(err) => warn!(%err, "cannot load scheduled analyses"),
             }
             if let Err(err) = self.deliver_alerts().await {
@@ -159,12 +161,18 @@ impl Scanner {
 
         let wanted = match self.config.alert_mode {
             AlertMode::All => true,
-            AlertMode::MinScore => assessment.complete && assessment.score >= self.config.alert_min_score,
+            AlertMode::MinScore => {
+                assessment.complete && assessment.score >= self.config.alert_min_score
+            }
             AlertMode::Off => false,
         };
-        self.store.save(pair.block, &facts, &assessment, false).await?;
+        self.store
+            .save(pair.block, &facts, &assessment, false)
+            .await?;
         if wanted && self.telegram.is_some() {
-            self.store.queue_alert(&pair.token.to_string(), &format_alert(&facts, &assessment)).await?;
+            self.store
+                .queue_alert(&pair.token.to_string(), &format_alert(&facts, &assessment))
+                .await?;
         }
         Ok(())
     }
