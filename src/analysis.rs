@@ -242,8 +242,8 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         Ownership::NoOwnerFunction => s.note("pas de fonction owner() (rôles à vérifier)"),
         Ownership::Renounced => {}
     }
-    // Privileged functions only matter while someone can still call them.
-    if f.ownership != Ownership::Renounced {
+    // owner() does not establish whether other privileged roles remain.
+    {
         for &cap in &f.bytecode.capabilities {
             s.penalise(capability_penalty(cap), cap.label());
         }
@@ -340,13 +340,13 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_only_count_while_owned() {
+    fn capabilities_count_even_when_owner_is_renounced() {
         let mut t = safe_token();
         t.bytecode.capabilities = vec![Capability::Mint, Capability::Blacklist];
         assert_eq!(
             assess(&t).score,
-            100,
-            "renounced: privileged functions are dead code"
+            60,
+            "renounced ownership does not revoke other roles"
         );
         t.ownership = Ownership::Owned(Address::repeat_byte(9));
         assert_eq!(assess(&t).score, 100 - 10 - 20 - 20);
