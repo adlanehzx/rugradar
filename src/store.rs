@@ -146,6 +146,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn outbox_survives_reanalysis_and_reopen() {
+        let path = std::env::temp_dir().join(format!("rugradar-outbox-{}.db", std::process::id()));
+        let url = format!("sqlite://{}", path.display());
+        let store = Store::open(&url).await.unwrap();
+        let f = facts();
+        let token = f.token.to_string();
+        store.save(43, &f, &assess(&f), false).await.unwrap();
+        store.queue_alert(&token, "first").await.unwrap();
+        store.save(43, &f, &assess(&f), false).await.unwrap();
+        store.queue_alert(&token, "duplicate").await.unwrap();
+        assert_eq!(store.pending_alerts().await.unwrap(), vec![(token.clone(), "first".into())]);
+        store.pool.close().await;
+        let reopened = Store::open(&url).await.unwrap();
+        assert_eq!(reopened.pending_alerts().await.unwrap().len(), 1);
+        reopened.mark_delivered(&token).await.unwrap();
+        assert!(reopened.pending_alerts().await.unwrap().is_empty());
+        reopened.pool.close().await;
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
     async fn persists_tokens_and_cursor() {
         let store = Store::open("sqlite::memory:").await.unwrap();
         assert_eq!(store.last_block().await.unwrap(), None);

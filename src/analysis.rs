@@ -313,6 +313,13 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_simulation_is_incomplete() {
+        let mut token = safe_token();
+        token.simulation = Simulation::unavailable();
+        assert!(!assess(&token).complete);
+    }
+
+    #[test]
     fn clean_token_scores_100() {
         let a = assess(&safe_token());
         assert_eq!(a.score, 100);
