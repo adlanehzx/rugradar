@@ -58,9 +58,13 @@ impl Store {
     ) -> Result<()> {
         let report = serde_json::json!({ "facts": facts, "assessment": a }).to_string();
         sqlx::query(
-            "INSERT OR REPLACE INTO tokens
-               (token, pair, block, name, symbol, score, level, honeypot, liquidity_bnb, report, alerted)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO tokens
+               (token, pair, block, name, symbol, score, level, honeypot, liquidity_bnb, report, alerted, next_check)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, unixepoch() + 300)
+             ON CONFLICT(token) DO UPDATE SET name=excluded.name, symbol=excluded.symbol,
+             score=excluded.score, level=excluded.level, honeypot=excluded.honeypot,
+             liquidity_bnb=excluded.liquidity_bnb, report=excluded.report,
+             analysed_at=datetime('now'), next_check=unixepoch() + 300",
         )
         .bind(facts.token.to_string())
         .bind(facts.pair.to_string())
@@ -76,6 +80,15 @@ impl Store {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn due_pairs(&self) -> Result<Vec<crate::chain::NewPair>> {
+        let rows: Vec<(String, String, i64)> = sqlx::query_as(
+            "SELECT token, pair, block FROM tokens WHERE next_check <= unixepoch() ORDER BY next_check LIMIT 100"
+        ).fetch_all(&self.pool).await?;
+        rows.into_iter().map(|(token, pair, block)| Ok(crate::chain::NewPair {
+            token: token.parse()?, pair: pair.parse()?, block: block as u64,
+        })).collect()
     }
 
     pub async fn queue_alert(&self, token: &str, message: &str) -> Result<()> {

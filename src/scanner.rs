@@ -60,6 +60,14 @@ impl Scanner {
                 Ok(head) => next = self.scan_until(next, head).await,
                 Err(err) => warn!(%err, "cannot read the latest block"),
             }
+            match self.store.due_pairs().await {
+                Ok(pairs) => for pair in pairs {
+                    if let Err(err) = self.handle(pair).await {
+                        warn!(%err, token = %pair.token, "scheduled reanalysis failed");
+                    }
+                },
+                Err(err) => warn!(%err, "cannot load scheduled analyses"),
+            }
             if let Err(err) = self.deliver_alerts().await {
                 warn!(%err, "alert delivery failed; retrying next pass");
             }
