@@ -136,7 +136,15 @@ test("honeypot token: flagged with a score of 0", async () => {
 
 test("watch mode: discovers the three pairs from PairCreated events", async () => {
   const child = spawn(binary, [], { env: { ...process.env, ...env } });
-  await new Promise((resolve) => setTimeout(resolve, 6_000));
-  child.kill();
-  assert.match(await rugradar("stats"), /^3 tokens analysed, 1 honeypots detected/);
+  const deadline=Date.now()+30_000;
+  let stats="";
+  try {
+    while(Date.now()<deadline) {
+      stats=await rugradar("stats");
+      if(/^3 tokens analysed, 1 honeypots detected/.test(stats)) break;
+      if(child.exitCode!==null) throw new Error(`scanner exited: ${child.exitCode}`);
+      await new Promise(resolve=>setTimeout(resolve,250));
+    }
+    assert.match(stats,/^3 tokens analysed, 1 honeypots detected/);
+  } finally { child.kill(); }
 });
