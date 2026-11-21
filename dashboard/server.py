@@ -23,6 +23,10 @@ def handler(database):
                     if url.path == '/api/tokens':
                         rows = db.execute('SELECT report, analysed_at FROM tokens ORDER BY analysed_at DESC LIMIT 2000').fetchall()
                         return self.reply([dict(json.loads(r['report']), analysed_at=r['analysed_at']) for r in rows])
+                    if url.path == '/api/holders':
+                        token=parse_qs(url.query).get('token',[''])[0]
+                        row=db.execute('SELECT value FROM settings WHERE key=?',('holders:'+token.lower(),)).fetchone()
+                        return self.reply(json.loads(row[0]) if row else {'status':'not_indexed'})
                     if url.path == '/api/history':
                         token = parse_qs(url.query).get('token', [''])[0]
                         rows = db.execute('SELECT created_at,report FROM history WHERE token=? ORDER BY id DESC LIMIT 200', (token,)).fetchall()

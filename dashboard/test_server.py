@@ -28,6 +28,7 @@ class DashboardTest(unittest.TestCase):
         self.assertEqual(json.loads(self.get('/api/tokens'))[0]['assessment']['score'],50)
         self.assertEqual(len(json.loads(self.get('/api/history?token=0xtest'))),1)
         self.assertEqual(json.loads(self.get('/api/status'))['pending_alerts'],0)
+        self.assertEqual(json.loads(self.get('/api/holders?token=0xtest'))['status'],'not_indexed')
     def test_csv_formula_escaped(self):
         self.assertIn("'=DANGER",self.get('/export.csv').decode())
     def test_dashboard_available(self):

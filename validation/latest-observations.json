@@ -1,0 +1,1049 @@
+{
+  "run_utc": "2026-11-21T01:52:24.131516+00:00",
+  "source": "https://github.com/scytheradar/scythe-radar-datasets/tree/2d587e997e319ebac983b2748e44f8d798638439",
+  "historical_prediction_test": false,
+  "accuracy_estimated": false,
+  "limitations": [
+    "Adverse cases only; no representative benign controls",
+    "Current chain state, not state before each incident",
+    "Third-party labels retained as assertions, not proven ground truth",
+    "Unavailable cases are not successes"
+  ],
+  "results": [
+    {
+      "token": "0xcae117ca6bc8a341d2e7207f30e180f0e5618b9d",
+      "external_status": "Rugged once · Relaunch",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "liquidité quasi nulle : 0.012 BNB",
+            "LP brûlés : 0 % ; verrouillage externe non vérifié",
+            "owner() non confirmé ; absence de permissions non démontrée",
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "honeypot": false,
+          "level": "High",
+          "score": 30,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "decimals": 18,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.01212690336810296,
+          "lp_burned_ratio": 0.0,
+          "name": "ARK",
+          "ownership": "NoOwnerFunction",
+          "pair": "0x9bd148a6f58bba958721e6c6abf7cbe57f08d674",
+          "simulation": {
+            "block": 134802372,
+            "buy_tax_bps": 0,
+            "outcome": "Ok",
+            "sell_tax_bps": 0,
+            "transfer_tax_bps": 0,
+            "trials": [
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "ARK",
+          "token": "0xcae117ca6bc8a341d2e7207f30e180f0e5618b9d"
+        }
+      }
+    },
+    {
+      "token": "0x1d249e02fb188447c73127fee4cc3e5adb7556a3",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xc0e6ad13bd58413ed308729b688d601243e1cf77",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "liquidité quasi nulle : 0.000 BNB",
+            "LP brûlés : 0 % ; verrouillage externe non vérifié",
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "honeypot": false,
+          "level": "High",
+          "score": 30,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "decimals": 18,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 1.5855844902707e-05,
+          "lp_burned_ratio": 0.0,
+          "name": "Black Whale Token",
+          "ownership": "Renounced",
+          "pair": "0x510aec2d1fe4d27637aa15bd1788e48171c6149c",
+          "simulation": {
+            "block": 134802373,
+            "buy_tax_bps": 0,
+            "outcome": "Ok",
+            "sell_tax_bps": 0,
+            "transfer_tax_bps": 0,
+            "trials": [
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "BLK",
+          "token": "0xc0e6ad13bd58413ed308729b688d601243e1cf77"
+        }
+      }
+    },
+    {
+      "token": "0xb60501346240fcde1615de56ea9fff1ac1da5673",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xb49988a9ecbf0455b3b43fff7e64960d8399ccb8",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xb0a2416fd12711cbcfafb429031c0f7037fab970",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "liquidité quasi nulle : 0.002 BNB",
+            "LP brûlés : 0 % ; verrouillage externe non vérifié",
+            "propriétaire actif (ownership non renoncé)",
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "honeypot": false,
+          "level": "Critical",
+          "score": 20,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "decimals": 18,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.001741027636435592,
+          "lp_burned_ratio": 0.0,
+          "name": "Bee Token",
+          "ownership": {
+            "Owned": "0xb38ec9e07b5dfda34d409272f628e0bd31f2a388"
+          },
+          "pair": "0xffb36e2b45fad19be3417ca88e511496ec375a14",
+          "simulation": {
+            "block": 134802376,
+            "buy_tax_bps": 0,
+            "outcome": "Ok",
+            "sell_tax_bps": 0,
+            "transfer_tax_bps": 0,
+            "trials": [
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "BeeToken",
+          "token": "0xb0a2416fd12711cbcfafb429031c0f7037fab970"
+        }
+      }
+    },
+    {
+      "token": "0x21ec484e79a360ac66c7ab284e99a9e83a9ccd8d",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "liquidité quasi nulle : 0.000 BNB",
+            "LP brûlés : 0 % ; verrouillage externe non vérifié",
+            "propriétaire actif (ownership non renoncé)",
+            "peut modifier les taxes"
+          ],
+          "honeypot": false,
+          "level": "High",
+          "score": 25,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [
+            "peut modifier les taxes"
+          ],
+          "decimals": 5,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.000243184725821869,
+          "lp_burned_ratio": 0.0,
+          "name": "Easy Money",
+          "ownership": {
+            "Owned": "0xa89320fccd5ee31219ffd5aa174609a20c14a4d0"
+          },
+          "pair": "0xde608cc99a2681ef673834873dbf1eb811ac9797",
+          "simulation": {
+            "block": 134802379,
+            "buy_tax_bps": 100,
+            "outcome": "Ok",
+            "sell_tax_bps": 20,
+            "transfer_tax_bps": 100,
+            "trials": [
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 20,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 2,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 20,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 2,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "EASYMONEY",
+          "token": "0x21ec484e79a360ac66c7ab284e99a9e83a9ccd8d"
+        }
+      }
+    },
+    {
+      "token": "0xb0378817a0a97ea668a64a22dcbeea8389f7cb07",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0x7f9bd73e51e66e0b2c7a87db0ca530a11eb7a7e9",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xf9f89ef3c1b96a662db5fc9184dbf6ca1416dfe5",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xa8c514d991f59bab02d32b68f04204cb89261c88",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0x9739a6e18ef75e529ec41f82a4f281b42128b996",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "BLOCAGE OBSERVÉ EN SIMULATION : impossible de revendre après achat",
+            "taxe à la vente abusive : 100.0 %",
+            "liquidité quasi nulle : 0.010 BNB"
+          ],
+          "honeypot": true,
+          "level": "Critical",
+          "score": 0,
+          "scoring_version": 2,
+          "simulation_complete": false,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [],
+          "decimals": 9,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.009995220832519662,
+          "lp_burned_ratio": 1.0,
+          "name": "Super Token",
+          "ownership": "Renounced",
+          "pair": "0x199977bade521bdd0ef17aea4ccee3caf9b6f026",
+          "simulation": {
+            "block": 134802398,
+            "buy_tax_bps": 100,
+            "outcome": "SellFailed",
+            "sell_tax_bps": 10000,
+            "transfer_tax_bps": 100,
+            "trials": [
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "SUP",
+          "token": "0x9739a6e18ef75e529ec41f82a4f281b42128b996"
+        }
+      }
+    },
+    {
+      "token": "0xd9294bdb1a11d61de047de5b8034b20bc7eaab79",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "liquidité faible : 0.19 BNB",
+            "LP brûlés : 0 % ; verrouillage externe non vérifié",
+            "propriétaire actif (ownership non renoncé)",
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "honeypot": false,
+          "level": "High",
+          "score": 35,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [
+            "peut créer de nouveaux tokens (mint)"
+          ],
+          "decimals": 18,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.18971020868390154,
+          "lp_burned_ratio": 8.9e-05,
+          "name": "TRUMPSWAP",
+          "ownership": {
+            "Owned": "0x9b580c56af88823e2b478f540135b16a3acbf14e"
+          },
+          "pair": "0x7c2dc6bdd5a010a5d0c14a4d4cf9c3f106da99a6",
+          "simulation": {
+            "block": 134802398,
+            "buy_tax_bps": 0,
+            "outcome": "Ok",
+            "sell_tax_bps": 0,
+            "transfer_tax_bps": 0,
+            "trials": [
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 0,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 0,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "TSW",
+          "token": "0xd9294bdb1a11d61de047de5b8034b20bc7eaab79"
+        }
+      }
+    },
+    {
+      "token": "0xba7c07fe1f6e6e540b50b13373052f10976f5510",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "BLOCAGE OBSERVÉ EN SIMULATION : les transferts entre wallets sont bloqués",
+            "taxe sur les transferts entre wallets : 100.0 %",
+            "liquidité quasi nulle : 0.000 BNB",
+            "propriétaire actif (ownership non renoncé)"
+          ],
+          "honeypot": true,
+          "level": "Critical",
+          "score": 0,
+          "scoring_version": 2,
+          "simulation_complete": false,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [],
+          "decimals": 9,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 5.7885382807e-08,
+          "lp_burned_ratio": 1.0,
+          "name": "dappradar.com",
+          "ownership": {
+            "Owned": "0x3160a94bff68c202575b8f22ce72e772808cf165"
+          },
+          "pair": "0x1bd5f1214392f6e20cd06ddd6b518f2c56ea2587",
+          "simulation": {
+            "block": 134802400,
+            "buy_tax_bps": 0,
+            "outcome": "TransferFailed",
+            "sell_tax_bps": null,
+            "transfer_tax_bps": 10000,
+            "trials": [
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 10000,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 10000,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 10000,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 10000,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 10000,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 0,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "TransferFailed",
+                "sell_tax_bps": null,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 10000,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "GRT",
+          "token": "0xba7c07fe1f6e6e540b50b13373052f10976f5510"
+        }
+      }
+    },
+    {
+      "token": "0x43f595a9a438f0f26bae8458ca29d4ceb5e0c143",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0x62be34ec0147e5804f19239021f6117216fcdffc",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "taxe à l'achat : 5.0 %",
+            "taxe à la vente : 4.7 %",
+            "taxe sur les transferts entre wallets : 5.0 %",
+            "liquidité quasi nulle : 0.013 BNB",
+            "propriétaire actif (ownership non renoncé)"
+          ],
+          "honeypot": false,
+          "level": "High",
+          "score": 29,
+          "scoring_version": 2,
+          "simulation_complete": true,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [],
+          "decimals": 18,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.013497676313594182,
+          "lp_burned_ratio": 1.0,
+          "name": "SHIBAKING",
+          "ownership": {
+            "Owned": "0x52e47be4e2e4dac332b0480406b3e2fe51f27acb"
+          },
+          "pair": "0xbfa223320f708bb1a10117fa76527a7263700938",
+          "simulation": {
+            "block": 134802402,
+            "buy_tax_bps": 500,
+            "outcome": "Ok",
+            "sell_tax_bps": 469,
+            "transfer_tax_bps": 500,
+            "trials": [
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 469,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 500,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 301,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 500,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "Ok",
+                "sell_tax_bps": 66,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 500,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 469,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 500,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 301,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 500,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 500,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "Ok",
+                "sell_tax_bps": 66,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 500,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "SHIBAKING",
+          "token": "0x62be34ec0147e5804f19239021f6117216fcdffc"
+        }
+      }
+    },
+    {
+      "token": "0x052905446647f54c4280bb1af9b0037fb633a012",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "observed",
+      "report": {
+        "assessment": {
+          "complete": false,
+          "findings": [
+            "BLOCAGE OBSERVÉ EN SIMULATION : impossible de revendre après achat",
+            "taxe à la vente abusive : 100.0 %",
+            "liquidité quasi nulle : 0.008 BNB",
+            "propriétaire actif (ownership non renoncé)"
+          ],
+          "honeypot": true,
+          "level": "Critical",
+          "score": 0,
+          "scoring_version": 2,
+          "simulation_complete": false,
+          "unknowns": [
+            "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future",
+            "Revente future, délais et restrictions sélectives non établis",
+            "Permissions exhaustives, concentration complète et code des lockers non vérifiés",
+            "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
+          ]
+        },
+        "facts": {
+          "capabilities": [],
+          "decimals": 6,
+          "evidence": {
+            "hint": "Use /deep for detailed evidence",
+            "status": "not_requested"
+          },
+          "liquidity_bnb": 0.007999980892544615,
+          "lp_burned_ratio": 1.0,
+          "name": "HEXFloki",
+          "ownership": {
+            "Owned": "0xe9215f077cf497f8464e98a5788cc6ea5be9ab81"
+          },
+          "pair": "0xa2bd6b5a934efe52459a2dc11e2c42a9ed43691d",
+          "simulation": {
+            "block": 134802403,
+            "buy_tax_bps": 100,
+            "outcome": "SellFailed",
+            "sell_tax_bps": 10000,
+            "transfer_tax_bps": 100,
+            "trials": [
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffee",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151aa",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "1000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "10000000000000000"
+              },
+              {
+                "buy_tax_bps": 100,
+                "caller": "0x0000000000000000000000000000000000c0ffef",
+                "outcome": "SellFailed",
+                "sell_tax_bps": 10000,
+                "simulator": "0x00000000000000000000000000000000005151ab",
+                "transfer_tax_bps": 100,
+                "value_wei": "100000000000000000"
+              }
+            ]
+          },
+          "symbol": "HEXFLOKI",
+          "token": "0x052905446647f54c4280bb1af9b0037fb633a012"
+        }
+      }
+    },
+    {
+      "token": "0x3121a5c0d014714b0b82d6e017bc2112c7f5a8d1",
+      "external_status": "LP drained",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    },
+    {
+      "token": "0xf73eaca9f09ccd39c22d2659780ed6bd37b6249c",
+      "external_status": "Went to zero",
+      "external_label_not_independently_adjudicated": true,
+      "status": "analysis_unavailable"
+    }
+  ]
+}

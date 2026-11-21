@@ -235,3 +235,32 @@ La simulation reste un seul appel depuis un contrat avec un montant donné ; ell
 ne reproduit pas toutes les adresses, tous les montants et les états futurs.
 Une absence de signal signifie seulement qu'aucun des contrôles exécutés n'a relevé
 ce signal. Les rapports de version antérieure à 2 sont identifiés comme anciens.
+
+## Simulation multi-scénarios et validation externe
+
+Chaque simulation utilise désormais six scénarios : montant configuré divisé par
+10, montant configuré et montant multiplié par 10, avec deux adresses de contrat
+et deux appelants. Tous les scénarios sont figés au même bloc ; leurs résultats
+et adresses figurent dans `facts.simulation.trials`. Les taxes affichées sont les
+maxima observés. Un échec ou une indisponibilité n'est pas masqué par un succès.
+Cela ne remplace pas une simulation depuis de vrais EOA ou entre plusieurs blocs.
+
+`/holders <adresse> <bloc_de_déploiement>` vérifie l'absence de code au bloc précédent,
+indexe les adresses des événements Transfer depuis la création et relit tous leurs
+soldes au même bloc. La somme est rapprochée du supply. Limites : 50 000 blocs,
+10 000 adresses, durée de commande 90 secondes, RPC historique requis. Le résultat
+est conservé dans SQLite et accessible via `/api/holders?token=<adresse>`. Même un
+rapprochement réussi ne prouve pas l'absence de soldes cachés ou d'événements trompeurs.
+
+L'enrichissement `/deep` fixe également ses lectures à un bloc et résout les
+beacons ERC-1967. Les rôles custom restent hors couverture exhaustive.
+`LP_LOCKER_REVIEWS` permet de charger des références locales JSON avec adresse,
+`runtime_keccak256` et source de revue. Le hash du bytecode réellement lu est comparé
+à la référence ; cela ne vérifie pas la qualité de la revue et ne valide pas les
+lockers arbitraires par défaut. Exemple de méthode, sans adresse fictivement validée.
+
+`scripts/replay.py <manifest.json>` reproduit des observations RPC sourcées à un
+bloc fixé. `scripts/benchmark.py` collecte l'état actuel d'un jeu externe de tokens
+ayant subi des incidents. Sources et licence sont dans `validation/`. Ce jeu ne
+contient pas de témoins bénins et ses étiquettes ne sont pas expertisées ici :
+aucune précision de détection ou performance prédictive n'en est déduite.

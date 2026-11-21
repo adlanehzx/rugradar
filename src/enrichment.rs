@@ -35,9 +35,15 @@ fn address_word(value: &Value) -> Option<Address> {
     let a = Address::from_slice(&bytes[12..]);
     (a != Address::ZERO).then_some(a)
 }
-async fn call(url: &str, token: Address, signature: &str, args: &str) -> Result<Value> {
+async fn call(
+    url: &str,
+    token: Address,
+    signature: &str,
+    args: &str,
+    block: &str,
+) -> Result<Value> {
     let selector = crate::bytecode::selector(signature);
-    rpc(url,"eth_call",json!([{"to":token.to_string(),"data":format!("0x{}{}",alloy::hex::encode(selector),args)},"latest"])).await
+    rpc(url,"eth_call",json!([{"to":token.to_string(),"data":format!("0x{}{}",alloy::hex::encode(selector),args)},block])).await
 }
 fn uint(v: &Value) -> Option<U256> {
     v.as_str()?.parse().ok()
@@ -45,6 +51,17 @@ fn uint(v: &Value) -> Option<U256> {
 
 pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
     let mut result = json!({"coverage":"recent_sample", "holder_index_complete":false,"locks":{"status":"unknown","reason":"No verified locker adapter configured"},"limitations":["Recent logs only; missing addresses and custom roles are possible","Contract responses are untrusted; no safety guarantee"]});
+    let Ok(head) = rpc(url, "eth_blockNumber", json!([])).await else {
+        return result;
+    };
+    let Some(head) = head
+        .as_str()
+        .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+    else {
+        return result;
+    };
+    let snapshot = format!("0x{head:x}");
+    result["snapshot_block"] = json!(head);
     for (name, slot) in [
         (
             "implementation",
@@ -58,7 +75,7 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
         match rpc(
             url,
             "eth_getStorageAt",
-            json!([token.to_string(), slot, "latest"]),
+            json!([token.to_string(), slot, snapshot]),
         )
         .await
         {
@@ -70,13 +87,30 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
             }
         }
     }
+    if result["implementation"]["address"].is_null() {
+        let slot = "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50";
+        if let Ok(value) = rpc(
+            url,
+            "eth_getStorageAt",
+            json!([token.to_string(), slot, snapshot]),
+        )
+        .await
+            && let Some(beacon) = address_word(&value)
+        {
+            result["beacon"] = json!(beacon);
+            if let Ok(value) = call(url, beacon, "implementation()", "", &snapshot).await {
+                result["implementation"] =
+                    json!({"status":"queried_beacon","address":address_word(&value)});
+            }
+        }
+    }
     if let Some(implementation) = result["implementation"]["address"]
         .as_str()
         .and_then(|s| s.parse::<Address>().ok())
         && let Ok(code) = rpc(
             url,
             "eth_getCode",
-            json!([implementation.to_string(), "latest"]),
+            json!([implementation.to_string(), snapshot]),
         )
         .await
         && let Some(code) = code.as_str().and_then(|s| alloy::hex::decode(s).ok())
@@ -90,15 +124,6 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
                 .collect::<Vec<_>>()
         );
     }
-    let Ok(head) = rpc(url, "eth_blockNumber", json!([])).await else {
-        return result;
-    };
-    let Some(head) = head
-        .as_str()
-        .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
-    else {
-        return result;
-    };
     let from = head.saturating_sub(300);
     result["from_block"] = json!(from);
     result["to_block"] = json!(head);
@@ -128,17 +153,29 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
         keccak256("PAUSER_ROLE"),
     ] {
         let role_arg = alloy::hex::encode(role);
-        if let Some(count) = call(url, token, "getRoleMemberCount(bytes32)", &role_arg)
-            .await
-            .ok()
-            .and_then(|v| uint(&v))
+        if let Some(count) = call(
+            url,
+            token,
+            "getRoleMemberCount(bytes32)",
+            &role_arg,
+            &snapshot,
+        )
+        .await
+        .ok()
+        .and_then(|v| uint(&v))
         {
             for i in 0..count.saturating_to::<u64>().min(10) {
                 let args = format!("{}{:064x}", role_arg, i);
-                if let Some(account) = call(url, token, "getRoleMember(bytes32,uint256)", &args)
-                    .await
-                    .ok()
-                    .and_then(|v| address_word(&v))
+                if let Some(account) = call(
+                    url,
+                    token,
+                    "getRoleMember(bytes32,uint256)",
+                    &args,
+                    &snapshot,
+                )
+                .await
+                .ok()
+                .and_then(|v| address_word(&v))
                 {
                     enumerable_roles.push(json!({"role":role,"account":account}));
                 }
@@ -153,28 +190,48 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
             .filter_map(|s| s.trim().parse::<Address>().ok())
             .take(10)
         {
-            let declared = call(url, locker, "token()", "")
+            let declared = call(url, locker, "token()", "", &snapshot)
                 .await
                 .ok()
                 .and_then(|v| address_word(&v));
-            let release = call(url, locker, "releaseTime()", "")
+            let release = call(url, locker, "releaseTime()", "", &snapshot)
                 .await
                 .ok()
                 .and_then(|v| uint(&v));
             let args = format!("{:0>64}", alloy::hex::encode(locker));
-            let balance = call(url, pair, "balanceOf(address)", &args)
+            let balance = call(url, pair, "balanceOf(address)", &args, &snapshot)
                 .await
                 .ok()
                 .and_then(|v| uint(&v));
             if declared == Some(pair) {
-                locks.push(json!({"address":locker,"lp_balance":balance.map(|b|b.to_string()),"release_unix":release.map(|t|t.to_string()),"verification":"declared_interface_only","warning":"The interface does not prove immutable locking logic"}));
+                let mut code_reference = json!({"status":"no_review_reference"});
+                if let Ok(path) = std::env::var("LP_LOCKER_REVIEWS")
+                    && let Ok(contents) = std::fs::read_to_string(path)
+                    && let Ok(entries) = serde_json::from_str::<Vec<Value>>(&contents)
+                {
+                    for entry in entries.iter().filter(|e| {
+                        e["address"]
+                            .as_str()
+                            .is_some_and(|s| s.eq_ignore_ascii_case(&locker.to_string()))
+                    }) {
+                        if let Ok(raw) =
+                            rpc(url, "eth_getCode", json!([locker.to_string(), snapshot])).await
+                            && let Some(bytes) =
+                                raw.as_str().and_then(|s| alloy::hex::decode(s).ok())
+                        {
+                            let hash = keccak256(&bytes).to_string();
+                            code_reference = json!({"status":if entry["runtime_keccak256"]==hash {"reference_match"}else{"reference_mismatch"},"runtime_keccak256":hash,"review_source":entry["source"],"warning":"A matching configured hash is not an independent code audit"});
+                        }
+                    }
+                }
+                locks.push(json!({"code_reference":code_reference,"address":locker,"lp_balance":balance.map(|b|b.to_string()),"release_unix":release.map(|t|t.to_string()),"verification":"declared_interface_only","warning":"The interface does not prove immutable locking logic"}));
             }
         }
     }
     if !locks.is_empty() {
         result["locks"] = json!({"status":"declared_timelocks","items":locks});
     }
-    let supply = call(url, token, "totalSupply()", "")
+    let supply = call(url, token, "totalSupply()", "", &snapshot)
         .await
         .ok()
         .and_then(|v| uint(&v));
@@ -188,7 +245,7 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
         .take(20)
     {
         let args = format!("{:0>64}", alloy::hex::encode(account));
-        if let Some(balance) = call(url, token, "balanceOf(address)", &args)
+        if let Some(balance) = call(url, token, "balanceOf(address)", &args, &snapshot)
             .await
             .ok()
             .and_then(|v| uint(&v))
@@ -217,7 +274,7 @@ pub async fn collect(url: &str, token: Address, pair: Address) -> Value {
             role.trim_start_matches("0x"),
             alloy::hex::encode(account)
         );
-        if call(url, token, "hasRole(bytes32,address)", &args)
+        if call(url, token, "hasRole(bytes32,address)", &args, &snapshot)
             .await
             .ok()
             .and_then(|v| uint(&v))

@@ -3,7 +3,7 @@ use crate::{analysis::assess, chain::NewPair, scanner::Scanner, telegram::format
 use alloy::primitives::Address;
 use anyhow::{Context, Result};
 
-const HELP: &str = "🤖 <b>RugRadar</b>\n/check adresse — analyse immédiate\n/watch adresse — suivre un token\n/unwatch adresse — retirer du suivi\n/watchlist — liste suivie\n/stats — statistiques\n/pause — suspendre les alertes\n/resume — reprendre les alertes\n/deep adresse — détenteurs, rôles, proxy\n/filters — régler les filtres\n/help — cette aide";
+const HELP: &str = "🤖 <b>RugRadar</b>\n/check adresse — analyse immédiate\n/watch adresse — suivre un token\n/unwatch adresse — retirer du suivi\n/watchlist — liste suivie\n/stats — statistiques\n/pause — suspendre les alertes\n/resume — reprendre les alertes\n/holders adresse bloc — indexation depuis le déploiement\n/deep adresse — détenteurs, rôles, proxy\n/filters — régler les filtres\n/help — cette aide";
 
 impl Scanner {
     pub(crate) async fn poll_commands(&self) -> Result<()> {
@@ -67,6 +67,38 @@ impl Scanner {
                         .await?
                         .unwrap_or(self.config.alert_max_tax_bps.to_string())
                 ))
+            }
+            "/holders" => {
+                let Some(token) = words.next().and_then(|v| v.parse::<Address>().ok()) else {
+                    return Ok("Usage : /holders adresse bloc_de_déploiement".into());
+                };
+                let Some(block) = words.next().and_then(|v| v.parse::<u64>().ok()) else {
+                    return Ok("Le bloc exact du déploiement est nécessaire.".into());
+                };
+                let result = tokio::time::timeout(
+                    std::time::Duration::from_secs(90),
+                    tokio::process::Command::new("python3")
+                        .arg(concat!(
+                            env!("CARGO_MANIFEST_DIR"),
+                            "/scripts/index_holders.py"
+                        ))
+                        .arg(token.to_string())
+                        .arg(block.to_string())
+                        .env("RPC_URL", &self.config.rpc_url)
+                        .kill_on_drop(true)
+                        .output(),
+                )
+                .await;
+                match result {
+                    Ok(Ok(out)) if out.status.success()=> {
+                        let report:serde_json::Value=serde_json::from_slice(&out.stdout)?;
+                        let holders=report["holders"].as_array().map(|v|v.len()).unwrap_or(0);
+                        self.store.set_setting(&format!("holders:{}",token.to_string().to_lowercase()),&report.to_string()).await?;
+                        let top=report["holders"].as_array().into_iter().flatten().take(10).map(|h|format!("{} : {:.2} %",h["address"].as_str().unwrap_or("?"),h["supply_percent"].as_f64().unwrap_or(0.0))).collect::<Vec<_>>().join("\n");
+                        Ok(format!("{top}\nDétenteurs indexés : {holders}\nSupply rapproché : {}\nBloc : {}\nLes événements et réponses du token ne prouvent pas l'absence de soldes cachés.",report["supply_reconciled"],report["block"]))
+                    },
+                    _=>Ok("Indexation incomplète : bloc de déploiement, budget, RPC archive ou durée maximale. Aucun verdict de concentration complet n'est émis.".into())
+                }
             }
             "/deep" => {
                 let Some(token) = words.next().and_then(|s| s.parse::<Address>().ok()) else {

@@ -76,17 +76,17 @@ async function list(token, { hasPair = false } = {}) {
 }
 
 /** Same call the Rust scanner makes: Simulator bytecode injected with a state override. */
-async function simulate(tokenAddr) {
+async function simulate(tokenAddr, simulator=SIM_ADDRESS, buyValue=BUY_VALUE) {
   const data = simIface.encodeFunctionData("simulate", [
     await router.getAddress(),
     tokenAddr,
     await weth.getAddress(),
   ]);
   const raw = await provider.send("eth_call", [
-    { from: CALLER, to: SIM_ADDRESS, data, value: ethers.toQuantity(BUY_VALUE), gas: ethers.toQuantity(8_000_000) },
+    { from: CALLER, to: simulator, data, value: ethers.toQuantity(buyValue), gas: ethers.toQuantity(8_000_000) },
     "latest",
     {
-      [SIM_ADDRESS]: { code: "0x" + artifacts.Simulator.evm.deployedBytecode.object },
+      [simulator]: { code: "0x" + artifacts.Simulator.evm.deployedBytecode.object },
       [CALLER]: { balance: ethers.toQuantity(ethers.parseEther("10")) },
     },
   ]);
@@ -158,4 +158,15 @@ test("approve returning false is detected before attempting a sale", async () =>
   const token=await deploy(a.abi,a.evm.bytecode.object,2);
   const address=await list(token);
   assert.equal(Number((await simulate(address)).status),3);
+});
+
+test("address-selective restriction is exposed by the second simulator",async()=>{
+ const a=artifacts.FalseReturnToken;const token=await deploy(a.abi,a.evm.bytecode.object,3);const address=await list(token);
+ assert.equal(Number((await simulate(address)).status),0);
+ assert.equal(Number((await simulate(address,"0x00000000000000000000000000000000005151ab")).status),6);
+});
+test("amount-selective restriction differs between small and large probes",async()=>{
+ const a=artifacts.FalseReturnToken;const token=await deploy(a.abi,a.evm.bytecode.object,4);const address=await list(token);
+ assert.equal(Number((await simulate(address,SIM_ADDRESS,ethers.parseEther("0.001"))).status),0);
+ assert.equal(Number((await simulate(address,SIM_ADDRESS,ethers.parseEther("0.1"))).status),6);
 });

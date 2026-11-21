@@ -333,6 +333,31 @@ fn u256_ratio(a: U256, b: U256) -> f64 {
 mod tests {
     use super::*;
 
+    #[test]
+    fn successful_trial_cannot_hide_failed_or_unavailable_trial() {
+        let trial = |outcome, buy_tax_bps| crate::analysis::Trial {
+            value_wei: "1".into(),
+            caller: CALLER,
+            simulator: SIMULATOR,
+            outcome,
+            buy_tax_bps: Some(buy_tax_bps),
+            sell_tax_bps: Some(0),
+            transfer_tax_bps: Some(0),
+        };
+        let summary = summarize_trials(
+            vec![trial(SimOutcome::Ok, 0), trial(SimOutcome::SellFailed, 100)],
+            123,
+        );
+        assert_eq!(summary.outcome, SimOutcome::SellFailed);
+        assert_eq!(summary.buy_tax_bps, Some(100));
+        assert_eq!(summary.block, Some(123));
+        let summary = summarize_trials(
+            vec![trial(SimOutcome::Ok, 0), trial(SimOutcome::Unavailable, 0)],
+            123,
+        );
+        assert_eq!(summary.outcome, SimOutcome::Unavailable);
+    }
+
     #[tokio::test]
     async fn falls_back_after_primary_transport_failure() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};

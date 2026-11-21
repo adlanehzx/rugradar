@@ -82,6 +82,7 @@ impl Telegram {
             ("help", "Aide"),
             ("check", "Analyser un token"),
             ("deep", "Examiner détenteurs rôles et proxy"),
+            ("holders", "Indexer depuis le bloc de déploiement"),
             ("watch", "Suivre un token"),
             ("unwatch", "Retirer du suivi"),
             ("watchlist", "Liste suivie"),

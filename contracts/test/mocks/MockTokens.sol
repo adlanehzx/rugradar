@@ -68,6 +68,8 @@ contract FalseReturnToken is ERC20 {
     constructor(uint8 m) ERC20("False return", "FALSE") { mode=m; _mint(msg.sender,1_000_000 ether); }
     function transfer(address to,uint256 value) public override returns(bool) {
         if(msg.sender==address(0x5151aa) && mode==1) return false;
+        if(msg.sender==address(0x5151ab) && mode==3) return false;
+        if(msg.sender==address(0x5151aa) && mode==4 && value>1 ether) return false;
         return super.transfer(to,value);
     }
     function approve(address spender,uint256 value) public override returns(bool) {

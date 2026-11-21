@@ -296,7 +296,13 @@ pub fn assess(f: &TokenFacts) -> Assessment {
     let simulation_complete = sim.outcome == SimOutcome::Ok
         && sim.buy_tax_bps.is_some()
         && sim.sell_tax_bps.is_some()
-        && sim.transfer_tax_bps.is_some();
+        && sim.transfer_tax_bps.is_some()
+        && sim.trials.iter().all(|t| {
+            t.outcome == SimOutcome::Ok
+                && t.buy_tax_bps.is_some()
+                && t.sell_tax_bps.is_some()
+                && t.transfer_tax_bps.is_some()
+        });
     let unknowns = vec![
         "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future".into(),
         "Revente future, délais et restrictions sélectives non établis".into(),

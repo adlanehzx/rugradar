@@ -15,6 +15,7 @@ def collect(url,token,start,max_blocks=50000):
     if rpc(url,'eth_getCode',[token,hex(start-1)]) not in ('0x','0x0'):raise ValueError('Contract existed before supplied deployment block')
     code=rpc(url,'eth_getCode',[token,hex(start)])
     if code in ('0x','0x0'):raise ValueError('No contract at supplied deployment block')
+    snapshot=rpc(url,'eth_getBlockByNumber',[hex(head),False])['hash']
     addresses=set()
     for block in range(start,head+1,100):
         logs=rpc(url,'eth_getLogs',[{'address':token,'fromBlock':hex(block),'toBlock':hex(min(head,block+99)),'topics':[TRANSFER]}])
@@ -33,7 +34,8 @@ def collect(url,token,start,max_blocks=50000):
         if balance:holders.append({'address':address,'balance_raw':str(balance),'supply_percent':100*balance/supply if supply else None})
     holders.sort(key=lambda x:int(x['balance_raw']),reverse=True)
     total=sum(int(h['balance_raw']) for h in holders)
-    return {'token':token,'from_block':start,'block':head,'candidate_method':'Transfer logs since verified creation block','supply_raw':str(supply),'sum_balances_raw':str(total),'supply_reconciled':total==supply and supply>0,'holders':holders,'security_complete':False,'limitations':['Relies on truthful standard ERC20 events, totalSupply and balanceOf','No inference of wallet relationships or beneficial ownership','Rebases, concealed balances, RPC omissions and reorgs may invalidate reconstruction']}
+    if rpc(url,'eth_getBlockByNumber',[hex(head),False])['hash']!=snapshot:raise ValueError('Snapshot block changed during indexing')
+    return {'token':token,'from_block':start,'block':head,'block_hash':snapshot,'candidate_method':'Transfer logs since verified creation block','supply_raw':str(supply),'sum_balances_raw':str(total),'supply_reconciled':total==supply and supply>0,'holders':holders,'security_complete':False,'limitations':['Relies on truthful standard ERC20 events, totalSupply and balanceOf','No inference of wallet relationships or beneficial ownership','Rebases, concealed balances, RPC omissions and reorgs may invalidate reconstruction']}
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('token');parser.add_argument('deployment_block',type=int);args=parser.parse_args()
     settings=dict(l.split('=',1) for l in Path('.env').read_text().splitlines() if '=' in l and not l.startswith('#')) if Path('.env').exists() else {}
