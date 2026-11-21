@@ -202,6 +202,51 @@ impl Chain {
     /// Buys, transfers and sells the token inside a single `eth_call`, with the Simulator
     /// bytecode injected through a state override. Costs nothing and needs no wallet.
     pub async fn simulate(&self, token: Address, buy_value: U256) -> Simulation {
+        let Ok(block) = self.latest_block().await else {
+            return Simulation::unavailable();
+        };
+        let amounts = [
+            (buy_value / U256::from(10)).max(U256::from(1)),
+            buy_value,
+            buy_value.saturating_mul(U256::from(10)),
+        ];
+        let addresses = [
+            (CALLER, SIMULATOR),
+            (
+                address!("0000000000000000000000000000000000c0ffef"),
+                address!("00000000000000000000000000000000005151ab"),
+            ),
+        ];
+        let mut trials = Vec::new();
+        for (caller, simulator) in addresses {
+            for value in amounts {
+                let result = tokio::time::timeout(
+                    std::time::Duration::from_secs(8),
+                    self.simulate_one(token, value, caller, simulator, block),
+                )
+                .await
+                .unwrap_or_else(|_| Simulation::unavailable());
+                trials.push(crate::analysis::Trial {
+                    value_wei: value.to_string(),
+                    caller,
+                    simulator,
+                    outcome: result.outcome,
+                    buy_tax_bps: result.buy_tax_bps,
+                    sell_tax_bps: result.sell_tax_bps,
+                    transfer_tax_bps: result.transfer_tax_bps,
+                });
+            }
+        }
+        summarize_trials(trials, block)
+    }
+    async fn simulate_one(
+        &self,
+        token: Address,
+        buy_value: U256,
+        caller: Address,
+        simulator: Address,
+        block: u64,
+    ) -> Simulation {
         let data = ISimulator::simulateCall {
             router: self.router,
             token,
@@ -209,17 +254,23 @@ impl Chain {
         }
         .abi_encode();
         let tx = TransactionRequest::default()
-            .with_from(CALLER)
-            .with_to(SIMULATOR)
+            .with_from(caller)
+            .with_to(simulator)
             .with_value(buy_value)
             .with_gas_limit(8_000_000)
             .with_input(data);
         let overrides = StateOverridesBuilder::default()
-            .with_code(SIMULATOR, self.simulator_code.clone())
-            .with_balance(CALLER, buy_value * U256::from(10u8))
+            .with_code(simulator, self.simulator_code.clone())
+            .with_balance(caller, buy_value * U256::from(10u8))
             .build();
 
-        let raw = match self.provider().call(tx).overrides(overrides).await {
+        let raw = match self
+            .provider()
+            .call(tx)
+            .block(block.into())
+            .overrides(overrides)
+            .await
+        {
             Ok(raw) => raw,
             Err(err) => {
                 tracing::debug!(%token, %err, "simulation call failed");
@@ -228,6 +279,8 @@ impl Chain {
         };
         match ISimulator::simulateCall::abi_decode_returns(&raw) {
             Ok(r) => Simulation {
+                trials: vec![],
+                block: Some(block),
                 outcome: SimOutcome::from_status(r.status),
                 buy_tax_bps: tax_bps(r.buyExpected, r.buyReceived),
                 sell_tax_bps: tax_bps(r.sellExpected, r.sellReceived),
@@ -235,6 +288,34 @@ impl Chain {
             },
             Err(_) => Simulation::unavailable(),
         }
+    }
+}
+
+fn summarize_trials(trials: Vec<crate::analysis::Trial>, block: u64) -> Simulation {
+    // A successful scenario must never conceal a failed or unavailable scenario.
+    let outcome = trials
+        .iter()
+        .find(|t| t.outcome.is_honeypot())
+        .map(|t| t.outcome)
+        .or_else(|| {
+            trials
+                .iter()
+                .find(|t| t.outcome != SimOutcome::Ok)
+                .map(|t| t.outcome)
+        })
+        .unwrap_or(SimOutcome::Unavailable);
+    let outcome = if trials.iter().all(|t| t.outcome == SimOutcome::Ok) && !trials.is_empty() {
+        SimOutcome::Ok
+    } else {
+        outcome
+    };
+    Simulation {
+        outcome,
+        buy_tax_bps: trials.iter().filter_map(|t| t.buy_tax_bps).max(),
+        sell_tax_bps: trials.iter().filter_map(|t| t.sell_tax_bps).max(),
+        transfer_tax_bps: trials.iter().filter_map(|t| t.transfer_tax_bps).max(),
+        trials,
+        block: Some(block),
     }
 }
 

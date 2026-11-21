@@ -42,7 +42,20 @@ impl SimOutcome {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct Trial {
+    pub value_wei: String,
+    pub caller: Address,
+    pub simulator: Address,
+    pub outcome: SimOutcome,
+    pub buy_tax_bps: Option<u32>,
+    pub sell_tax_bps: Option<u32>,
+    pub transfer_tax_bps: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Simulation {
+    pub trials: Vec<Trial>,
+    pub block: Option<u64>,
     pub outcome: SimOutcome,
     /// Taxes in basis points (100 bps = 1 %), when measurable.
     pub buy_tax_bps: Option<u32>,
@@ -54,6 +67,8 @@ impl Simulation {
     /// The RPC could not run the simulation: nothing is known about taxes.
     pub fn unavailable() -> Self {
         Self {
+            trials: vec![],
+            block: None,
             outcome: SimOutcome::Unavailable,
             buy_tax_bps: None,
             sell_tax_bps: None,
@@ -283,7 +298,7 @@ pub fn assess(f: &TokenFacts) -> Assessment {
         && sim.sell_tax_bps.is_some()
         && sim.transfer_tax_bps.is_some();
     let unknowns = vec![
-        "Simulation à un seul montant, avec une adresse de contrat et dans un seul appel".into(),
+        "Chaque scénario utilise une adresse de contrat et un seul appel ; pas un portefeuille EOA ni une revente future".into(),
         "Revente future, délais et restrictions sélectives non établis".into(),
         "Permissions exhaustives, concentration complète et code des lockers non vérifiés".into(),
         "Score heuristique non calibré sur un corpus indépendant ; ce n'est pas une probabilité"
@@ -327,6 +342,8 @@ mod tests {
             },
             capabilities: vec![],
             simulation: Simulation {
+                trials: vec![],
+                block: None,
                 outcome: SimOutcome::Ok,
                 buy_tax_bps: Some(0),
                 sell_tax_bps: Some(0),

@@ -209,6 +209,8 @@ mod tests {
             bytecode: BytecodeReport::default(),
             capabilities: vec![],
             simulation: Simulation {
+                trials: vec![],
+                block: None,
                 outcome: SimOutcome::SellFailed,
                 buy_tax_bps: None,
                 sell_tax_bps: None,

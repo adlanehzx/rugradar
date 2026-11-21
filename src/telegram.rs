@@ -22,6 +22,13 @@ pub fn format_alert(f: &TokenFacts, a: &Assessment) -> String {
         a.score,
         a.level.label()
     );
+    if !f.simulation.trials.is_empty() {
+        msg.push_str(&format!(
+            "Scénarios : {} · bloc {} · taxes maximales observées\n",
+            f.simulation.trials.len(),
+            f.simulation.block.unwrap_or_default()
+        ));
+    }
     if !a.simulation_complete {
         msg.push_str("⚪ Analyse incomplète : revente non vérifiée\n");
     }
@@ -194,6 +201,8 @@ mod tests {
             bytecode: BytecodeReport::default(),
             capabilities: vec![],
             simulation: Simulation {
+                trials: vec![],
+                block: None,
                 outcome: SimOutcome::Ok,
                 buy_tax_bps: Some(500),
                 sell_tax_bps: Some(1_200),
