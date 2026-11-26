@@ -1,92 +1,92 @@
-> Évaluation v2 : l'indice numérique est heuristique et non calibré. Il ne représente
-> pas une probabilité de sécurité. La couverture de sécurité reste partielle, même
-> si achat/transfert/revente réussissent. Les anciens rapports doivent être réanalysés.
-> Les alertes `min_score` filtrent un indice, sans recommandation d'achat.
-> Les erreurs de simulation et les permissions inconnues ne prouvent pas leur absence.
+> Assessment v2: the numeric index is heuristic and uncalibrated. It does not represent
+> a probability of safety. Security coverage remains partial, even when
+> buy/transfer/sell succeed. Older reports must be re-analyzed.
+> `min_score` alerts filter on an index, not a buy recommendation.
+> Simulation errors and unknown permissions do not prove their absence.
 
 # RugRadar
 
-**Scanner de risque en temps réel pour les nouveaux tokens listés sur PancakeSwap (BNB Smart Chain).**
-Chaque nouvelle paire est analysée en quelques secondes : honeypot, taxes cachées, liquidité, fonctions dangereuses du contrat. Le résultat est un score sur 100, enregistré en base et envoyé sur Telegram.
+**Real-time risk scanner for new tokens listed on PancakeSwap (BNB Smart Chain).**
+Each new pair is analyzed within seconds: honeypot, hidden taxes, liquidity, dangerous contract functions. The result is a score out of 100, stored in a database and sent to Telegram.
 
 ![Rust](https://img.shields.io/badge/Rust-2024-orange)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.28-363636)
 ![BNB Chain](https://img.shields.io/badge/BNB%20Chain-PancakeSwap%20V2-F0B90B)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Outil d'analyse uniquement : RugRadar ne détient aucune clé privée et n'envoie jamais de transaction.
+> Analysis tool only: RugRadar holds no private key and never sends a transaction.
 
-## Ce qui est vérifié
+## What is checked
 
-| Vérification | Comment |
+| Check | How |
 | --- | --- |
-| **Honeypot** | Achat → transfert → revente simulés dans un seul `eth_call` (voir ci-dessous) |
-| **Taxes** | Écart entre le prix annoncé par le router et ce qui est réellement reçu, à l'achat, à la vente et entre wallets |
-| **Liquidité** | Réserve en BNB de la paire et part des tokens LP brûlés (sans conclure au verrouillage externe) |
-| **Propriétaire** | `owner()` renoncé, actif ou absent |
-| **Fonctions dangereuses** | Analyse du bytecode : `mint`, blacklist, modification des taxes, pause du trading, limites de transaction |
-| **Code modifiable** | Présence de `DELEGATECALL` (proxy) ou de `SELFDESTRUCT` |
+| **Honeypot** | Buy → transfer → sell simulated in a single `eth_call` (see below) |
+| **Taxes** | Gap between the price quoted by the router and what is actually received, on buy, on sell and between wallets |
+| **Liquidity** | The pair's BNB reserve and the share of burned LP tokens (without concluding anything about external locking) |
+| **Owner** | `owner()` renounced, active or absent |
+| **Dangerous functions** | Bytecode analysis: `mint`, blacklist, tax changes, trading pause, transaction limits |
+| **Mutable code** | Presence of `DELEGATECALL` (proxy) or `SELFDESTRUCT` |
 
-Les règles de score sont dans [`src/analysis.rs`](src/analysis.rs) : on part de 100 et chaque signal retire des points. Un honeypot vaut toujours 0.
+The scoring rules are in [`src/analysis.rs`](src/analysis.rs): the score starts at 100 and each signal removes points. A honeypot is always 0.
 
-## Simulation sans wallet ni frais
+## Simulation without a wallet or fees
 
-Le cœur du projet est [`contracts/Simulator.sol`](contracts/Simulator.sol). Ce contrat n'est **jamais déployé** : son bytecode est injecté à une adresse vide grâce aux *state overrides* d'`eth_call`, avec un solde fictif de BNB. Dans un seul appel en lecture seule, il :
+The core of the project is [`contracts/Simulator.sol`](contracts/Simulator.sol). This contract is **never deployed**: its bytecode is injected at an empty address using `eth_call` *state overrides*, with a fictitious BNB balance. In a single read-only call, it:
 
-1. demande au router le nombre de tokens attendus pour l'achat ;
-2. achète réellement contre l'état actuel de la chaîne et mesure ce qui arrive ;
-3. transfère 1 % vers une autre adresse (détecte les blocages et taxes de transfert) ;
-4. revend le reste et compare au prix annoncé.
+1. asks the router for the number of tokens expected from the purchase;
+2. actually buys against the current chain state and measures what arrives;
+3. transfers 1 % to another address (detects blocking and transfer taxes);
+4. sells the rest and compares it to the quoted price.
 
-Si l'achat passe mais que la revente échoue, c'est un honeypot. Rien n'est envoyé on-chain, aucun BNB n'est dépensé.
+If the buy succeeds but the sell fails, it is a honeypot. Nothing is sent on-chain and no BNB is spent.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    RPC[(Nœud BSC)] -->|eth_getLogs PairCreated| S[Scanner]
-    S --> M[Métadonnées et owner]
-    S --> B[Analyse du bytecode]
-    S --> L[Réserves et LP]
+    RPC[(BSC node)] -->|eth_getLogs PairCreated| S[Scanner]
+    S --> M[Metadata and owner]
+    S --> B[Bytecode analysis]
+    S --> L[Reserves and LP]
     S -->|eth_call + state override| SIM[Simulator.sol]
-    M & B & L & SIM --> A[Score de risque]
+    M & B & L & SIM --> A[Risk score]
     A --> DB[(SQLite)]
-    A --> TG[Alerte Telegram]
+    A --> TG[Telegram alert]
 ```
 
-| Module | Rôle |
+| Module | Role |
 | --- | --- |
-| `src/scanner.rs` | Boucle de surveillance, reprise au dernier bloc après redémarrage |
-| `src/chain.rs` | Appels RPC (alloy) : événements, réserves, simulation |
-| `src/bytecode.rs` | Désassemblage EVM et détection des sélecteurs dangereux |
-| `src/analysis.rs` | Calcul du score et des constats, entièrement testé |
-| `src/store.rs` | Historique SQLite (sqlx, migrations) |
-| `src/telegram.rs` | Format et envoi des alertes |
-| `contracts/` | Contrat de simulation, tests sur EVM local et test de bout en bout |
+| `src/scanner.rs` | Watch loop, resumes from the last block after a restart |
+| `src/chain.rs` | RPC calls (alloy): events, reserves, simulation |
+| `src/bytecode.rs` | EVM disassembly and detection of dangerous selectors |
+| `src/analysis.rs` | Score and findings computation, fully tested |
+| `src/store.rs` | SQLite history (sqlx, migrations) |
+| `src/telegram.rs` | Alert formatting and delivery |
+| `contracts/` | Simulation contract, tests on a local EVM and end-to-end test |
 
-## Démarrage
+## Getting started
 
-Prérequis : Rust 1.94+ et un endpoint HTTP BNB Smart Chain compatible `eth_getLogs` et *state overrides* (les offres gratuites de la plupart des fournisseurs conviennent).
-
-```bash
-cp .env.example .env     # renseignez RPC_URL, et TELEGRAM_* pour les alertes
-cargo run --release      # surveille les nouvelles paires
-```
-
-Autres commandes :
+Requirements: Rust 1.94+ and a BNB Smart Chain HTTP endpoint that supports `eth_getLogs` and *state overrides* (the free tiers of most providers work).
 
 ```bash
-cargo run --release -- check 0xADRESSE_DU_TOKEN   # rapport JSON d'un token déjà listé
-cargo run --release -- stats                      # tokens analysés et honeypots détectés
+cp .env.example .env     # set RPC_URL, and TELEGRAM_* for alerts
+cargo run --release      # watches new pairs
 ```
 
-Avec Docker :
+Other commands:
+
+```bash
+cargo run --release -- check 0xTOKEN_ADDRESS   # JSON report for an already listed token
+cargo run --release -- stats                   # tokens analyzed and honeypots detected
+```
+
+With Docker:
 
 ```bash
 docker compose up -d --build
 ```
 
-Exemple d'alerte :
+Example alert (the alert text is currently emitted in French by the scanner):
 
 ```
 Moon Inu (MINU) — score 30/100
@@ -104,106 +104,106 @@ Moon Inu (MINU) — score 30/100
 ## Tests
 
 ```bash
-cargo test                          # score, bytecode, base de données, format des alertes
+cargo test                          # score, bytecode, database, alert formatting
 
 cd contracts && npm ci
-npm test                            # Simulator.sol sur un EVM local avec Uniswap V2
-cargo build && npm run test:e2e     # le binaire Rust contre une chaîne locale (id 56)
+npm test                            # Simulator.sol on a local EVM with Uniswap V2
+cargo build && npm run test:e2e     # the Rust binary against a local chain (id 56)
 ```
 
-Le test de bout en bout lance un nœud local, y déploie les contrats officiels Uniswap V2 (PancakeSwap V2 en est un fork) et trois tokens : un token normal, un token taxé à 15 % et un honeypot. Il vérifie ensuite que le scanner les découvre et les classe correctement.
+The end-to-end test starts a local node, deploys the official Uniswap V2 contracts on it (PancakeSwap V2 is a fork) and three tokens: a normal token, a token taxed at 15 % and a honeypot. It then checks that the scanner discovers and classifies them correctly.
 
-Après une modification de `Simulator.sol`, regénérez le bytecode embarqué avec `npm run build` dans `contracts/`.
+After modifying `Simulator.sol`, regenerate the embedded bytecode with `npm run build` in `contracts/`.
 
-## Feuille de route
+## Roadmap
 
-- [ ] Concentration des détenteurs (indexation des `Transfer`)
-- [ ] Détection des verrous de liquidité connus (PinkLock, Unicrypt)
-- [ ] Paires contre USDT / BUSD et PancakeSwap V3
-- [ ] Tableau de bord web de l'historique
+- [ ] Holder concentration (indexing `Transfer` events)
+- [ ] Detection of known liquidity lockers (PinkLock, Unicrypt)
+- [ ] Pairs against USDT / BUSD and PancakeSwap V3
+- [ ] Web dashboard for the history
 
-## Licence
+## License
 
 [MIT](LICENSE) © Adlane Hamzaoui
 
-## Reprise et suivi
+## Recovery and monitoring
 
-Les erreurs d'analyse ou de sauvegarde du curseur interrompent la plage courante :
-elle sera retentée au prochain passage. Les tokens enregistrés sont réanalysés
-toutes les cinq minutes (100 au maximum par passage), notamment lorsque la paire
-n'avait pas encore de liquidité lors de sa création.
+Analysis or cursor-save errors interrupt the current range:
+it is retried on the next pass. Stored tokens are re-analyzed
+every five minutes (100 at most per pass), notably when the pair
+had no liquidity yet at creation.
 
-Les alertes Telegram passent par une file SQLite persistante. Une alerte initiale
-au maximum est mise en file par token ; les échecs sont retentés. La livraison est
-au moins une fois : une réponse réseau perdue après réception par Telegram peut
-entraîner un doublon. Les réanalyses ne génèrent pas encore d'alertes de changement.
+Telegram alerts go through a persistent SQLite queue. At most one initial alert
+is queued per token; failures are retried. Delivery is
+at-least-once: a network response lost after Telegram received the message may
+cause a duplicate. Re-analyses do not generate change alerts yet.
 
-Le champ JSON `assessment.simulation_complete` indique si achat, transfert et vente
-ont réussi avec des mesures de taxes disponibles. `assessment.complete` reste
-faux : les contrôles n'établissent jamais une couverture de sécurité exhaustive.
-Un indice supérieur ou égal à 50 produit désormais un risque `Indeterminate`,
-pas un verdict rassurant. Les alertes `min_score` exigent une simulation complète.
-Le score numérique reste une estimation partielle non calibrée. Un `owner()` renoncé
-ne désactive plus les avertissements sur les fonctions dangereuses : d'autres
-rôles peuvent conserver leurs permissions.
+The JSON field `assessment.simulation_complete` indicates whether buy, transfer and sell
+succeeded with tax measurements available. `assessment.complete` stays
+false: the checks never establish exhaustive security coverage.
+An index greater than or equal to 50 now produces an `Indeterminate` risk,
+not a reassuring verdict. `min_score` alerts require a complete simulation.
+The numeric score remains a partial, uncalibrated estimate. A renounced `owner()`
+no longer disables warnings about dangerous functions: other
+roles may keep their permissions.
 
-`CONFIRMATIONS` (15 par défaut) retarde la découverte pour réduire les effets des
-réorganisations courtes. Les réorganisations profondes ne sont pas encore réparées
-automatiquement et les lectures d'analyse utilisent toujours l'état récent du RPC.
+`CONFIRMATIONS` (15 by default) delays discovery to reduce the effect of short
+reorganizations. Deep reorganizations are not repaired automatically yet
+and analysis reads still use the RPC's recent state.
 
-## Commandes Telegram
+## Telegram commands
 
-Dans le chat privé du bot : `/help`, `/check <adresse>`, `/watch <adresse>`,
-`/unwatch <adresse>`, `/watchlist`, `/stats`, `/pause` et `/resume`.
-Seul le propriétaire du chat privé configuré peut les utiliser. `/pause` suspend
-l'envoi des alertes, sans arrêter le scanner ; `/resume` reprend aussi les messages
-en attente. Les commandes restent disponibles pendant la pause. `/watch` ajoute
-le token au suivi persistant et au cycle de réanalyse. `/unwatch` retire ce suivi
-personnel, sans retirer le token de l'index global du scanner.
+In the bot's private chat: `/help`, `/check <address>`, `/watch <address>`,
+`/unwatch <address>`, `/watchlist`, `/stats`, `/pause` and `/resume`.
+Only the owner of the configured private chat can use them. `/pause` suspends
+alert delivery without stopping the scanner; `/resume` also resumes pending
+messages. Commands remain available during the pause. `/watch` adds
+the token to the persistent watchlist and to the re-analysis cycle. `/unwatch` removes this
+personal tracking, without removing the token from the scanner's global index.
 
-## Surveillance, interface locale et exploitation
+## Monitoring, local interface and operations
 
-Le scanner conserve chaque analyse dans `history`. Pour les tokens de `/watchlist`,
-il met en file une alerte lorsque la liquidité baisse de plus de 20 % (si elle était
-supérieure à 0,1 BNB), le score perd au moins 10 points, un honeypot apparaît, les
-taxes achat/vente augmentent ou le propriétaire change. Les événements et leurs
-états de livraison sont persistants. Ce suivi périodique peut manquer une modification
-survenue puis annulée entre deux passages et la réserve varie aussi lors des swaps.
+The scanner keeps every analysis in `history`. For the tokens in `/watchlist`,
+it queues an alert when liquidity drops by more than 20 % (if it was
+above 0.1 BNB), the score loses at least 10 points, a honeypot appears,
+buy/sell taxes increase or the owner changes. Events and their
+delivery states are persistent. This periodic monitoring can miss a change
+made and then reverted between two passes, and the reserve also varies with swaps.
 
-`/filters` affiche les filtres ; `/filters min_score 75`,
-`/filters min_liquidity 1` et `/filters max_tax 1000` les modifient durablement.
-Les taxes sont en points de base : 1000 = 10 %. Ces filtres sélectionnent les alertes
-initiales ; les alertes de détérioration de la watchlist restent indépendantes.
-Les commandes ont une boucle dédiée et un clavier Telegram.
+`/filters` shows the filters; `/filters min_score 75`,
+`/filters min_liquidity 1` and `/filters max_tax 1000` change them durably.
+Taxes are in basis points: 1000 = 10 %. These filters select the initial alerts;
+the watchlist deterioration alerts remain independent.
+Commands have a dedicated loop and a Telegram keyboard.
 
-`/deep <adresse>` collecte les emplacements implementation/admin ERC-1967, les
-capacités du code d'implémentation, les rôles enumerable admin/minter/pauser et les
-rôles observés via `RoleGranted` dont `hasRole` confirme l'activité. La collecte
-récente couvre 300 blocs, au maximum 20 détenteurs candidats et 20 rôles. Les
-soldes sont relus auprès du contrat ; cet échantillon ne constitue pas un classement
-complet des détenteurs, ni une preuve de l'absence de rôles cachés. Les tokens suivis
-reçoivent aussi ces données dans leurs rapports. L'enrichissement ne modifie pas
-encore le score. Les proxies beacon et les permissions personnalisées ne sont pas
-résolus. Les contrats peuvent renvoyer des données trompeuses.
+`/deep <address>` collects the ERC-1967 implementation/admin slots, the
+capabilities of the implementation code, the enumerable admin/minter/pauser roles and the
+roles observed through `RoleGranted` whose activity `hasRole` confirms. Recent
+collection covers 300 blocks, at most 20 candidate holders and 20 roles. Balances
+are re-read from the contract; this sample is not a complete ranking
+of holders, nor proof that no hidden roles exist. Watched tokens
+also receive this data in their reports. The enrichment does not yet change
+the score. Beacon proxies and custom permissions are not
+resolved. Contracts can return misleading data.
 
-`LP_TIMELOCKS` accepte des adresses séparées par des virgules exposant `token()` et
-`releaseTime()` ; le scanner vérifie que le token déclaré est le LP et relève son
-solde. C'est une déclaration d'interface, **pas une validation du code du locker**.
-Sans adaptateur validé pour un protocole donné, le verrouillage reste inconnu.
-Sources des interfaces : https://eips.ethereum.org/EIPS/eip-1967 et
+`LP_TIMELOCKS` accepts comma-separated addresses exposing `token()` and
+`releaseTime()`; the scanner checks that the declared token is the LP and reads its
+balance. This is an interface declaration, **not a validation of the locker's code**.
+Without a validated adapter for a given protocol, locking remains unknown.
+Interface sources: https://eips.ethereum.org/EIPS/eip-1967 and
 https://docs.openzeppelin.com/contracts/5.x/access-control.
 
-Pour lancer l'interface : `python3 dashboard/server.py`, puis ouvrir
-http://127.0.0.1:8787. Recherche, filtre de risque, sélection watchlist, rapport JSON,
-historique du score et export CSV sont disponibles. Les routes `/api/tokens`,
-`/api/status`, `/api/history?token=...` sont en lecture seule. L'interface écoute
-uniquement sur localhost et affiche jusqu'à 2000 tokens et 200 points d'historique.
-Ne pas l'exposer directement sur Internet sans authentification.
+To launch the interface: `python3 dashboard/server.py`, then open
+http://127.0.0.1:8787. Search, risk filter, watchlist selection, JSON report,
+score history and CSV export are available. The routes `/api/tokens`,
+`/api/status` and `/api/history?token=...` are read-only. The interface listens
+on localhost only and displays up to 2000 tokens and 200 history points.
+Do not expose it directly to the Internet without authentication.
 
-Sur Linux avec systemd utilisateur, `./scripts/install-service.sh` construit le
-binaire puis installe et active le scanner, le dashboard et une sauvegarde quotidienne.
-Ces services démarrent avec la session utilisateur ; sans session persistante, ils
-ne garantissent pas un démarrage avant connexion. Commandes utiles :
+On Linux with a systemd user session, `./scripts/install-service.sh` builds the
+binary, then installs and enables the scanner, the dashboard and a daily backup.
+These services start with the user session; without a persistent session, they
+do not guarantee a start before login. Useful commands:
 
 ```bash
 systemctl --user status rugradar rugradar-dashboard
@@ -213,54 +213,54 @@ systemctl --user stop rugradar rugradar-dashboard
 systemctl --user start rugradar-backup.service
 ```
 
-Les sauvegardes utilisent l'API SQLite online backup, contrôlent l'intégrité et
-conservent les 14 fichiers les plus récents dans `backups/`. Pour restaurer : arrêter
-le scanner, sauvegarder la base courante, déplacer ses éventuels fichiers WAL/SHM,
-copier la sauvegarde vers `rugradar.db`, puis redémarrer. L'historique n'est pas encore
-purgé automatiquement ; surveiller l'espace disque. `RPC_FALLBACK_URLS` ajoute des
-endpoints de secours : leur chain ID est contrôlé avant le scan. Les échecs de blocs
-ou de logs entraînent un basculement. Les autres appels seront retentés au passage
-suivant ; l'enrichissement utilise l'URL primaire.
+Backups use the SQLite online backup API, check integrity and
+keep the 14 most recent files in `backups/`. To restore: stop
+the scanner, back up the current database, move any WAL/SHM files aside,
+copy the backup to `rugradar.db`, then restart. History is not yet
+purged automatically; watch disk space. `RPC_FALLBACK_URLS` adds
+fallback endpoints: their chain ID is checked before scanning. Block
+or log failures trigger a failover. Other calls are retried on the next
+pass; enrichment uses the primary URL.
 
-Validation supplémentaire : `python3 -m unittest discover -s dashboard -p 'test_*.py'`.
+Additional validation: `python3 -m unittest discover -s dashboard -p 'test_*.py'`.
 
-## Limites de validation
+## Validation limits
 
-Les tests couvrent le calcul des taxes, les erreurs et booléens ERC-20, les tokens
-normaux/taxés/bloqués sur EVM locale, le suivi persistant, le contrôle d'accès
-Telegram, le secours RPC et les API du dashboard. Ils ne mesurent pas un taux de
-faux négatifs sur un corpus indépendant de scams réels. Ni les détenteurs complets,
-ni les permissions personnalisées, ni la sûreté du code des lockers ne sont établis.
-La simulation reste un seul appel depuis un contrat avec un montant donné ; elle
-ne reproduit pas toutes les adresses, tous les montants et les états futurs.
-Une absence de signal signifie seulement qu'aucun des contrôles exécutés n'a relevé
-ce signal. Les rapports de version antérieure à 2 sont identifiés comme anciens.
+The tests cover tax computation, ERC-20 errors and booleans, normal/taxed/blocked
+tokens on a local EVM, persistent tracking, Telegram access control, RPC
+fallback and the dashboard APIs. They do not measure a false-negative rate
+on an independent corpus of real scams. Neither complete holders,
+nor custom permissions, nor the safety of locker code are established.
+The simulation remains a single call from a contract with a given amount; it
+does not reproduce every address, every amount and future states.
+The absence of a signal only means that none of the executed checks raised
+that signal. Reports from versions earlier than 2 are flagged as old.
 
-## Simulation multi-scénarios et validation externe
+## Multi-scenario simulation and external validation
 
-Chaque simulation utilise désormais six scénarios : montant configuré divisé par
-10, montant configuré et montant multiplié par 10, avec deux adresses de contrat
-et deux appelants. Tous les scénarios sont figés au même bloc ; leurs résultats
-et adresses figurent dans `facts.simulation.trials`. Les taxes affichées sont les
-maxima observés. Un échec ou une indisponibilité n'est pas masqué par un succès.
-Cela ne remplace pas une simulation depuis de vrais EOA ou entre plusieurs blocs.
+Each simulation now uses six scenarios: the configured amount divided by
+10, the configured amount and the amount multiplied by 10, with two contract addresses
+and two callers. All scenarios are pinned to the same block; their results
+and addresses appear in `facts.simulation.trials`. The displayed taxes are the
+observed maxima. A failure or unavailability is not masked by a success.
+This does not replace a simulation from real EOAs or across several blocks.
 
-`/holders <adresse> <bloc_de_déploiement>` vérifie l'absence de code au bloc précédent,
-indexe les adresses des événements Transfer depuis la création et relit tous leurs
-soldes au même bloc. La somme est rapprochée du supply. Limites : 50 000 blocs,
-10 000 adresses, durée de commande 90 secondes, RPC historique requis. Le résultat
-est conservé dans SQLite et accessible via `/api/holders?token=<adresse>`. Même un
-rapprochement réussi ne prouve pas l'absence de soldes cachés ou d'événements trompeurs.
+`/holders <address> <deployment_block>` checks that no code existed at the previous block,
+indexes the addresses from Transfer events since creation and re-reads all their
+balances at the same block. The sum is reconciled with the supply. Limits: 50,000 blocks,
+10,000 addresses, command duration 90 seconds, historical RPC required. The result
+is stored in SQLite and available through `/api/holders?token=<address>`. Even a
+successful reconciliation does not prove the absence of hidden balances or misleading events.
 
-L'enrichissement `/deep` fixe également ses lectures à un bloc et résout les
-beacons ERC-1967. Les rôles custom restent hors couverture exhaustive.
-`LP_LOCKER_REVIEWS` permet de charger des références locales JSON avec adresse,
-`runtime_keccak256` et source de revue. Le hash du bytecode réellement lu est comparé
-à la référence ; cela ne vérifie pas la qualité de la revue et ne valide pas les
-lockers arbitraires par défaut. Exemple de méthode, sans adresse fictivement validée.
+The `/deep` enrichment also pins its reads to a block and resolves ERC-1967
+beacons. Custom roles remain outside exhaustive coverage.
+`LP_LOCKER_REVIEWS` loads local JSON references with an address,
+`runtime_keccak256` and a review source. The hash of the bytecode actually read is compared
+to the reference; this does not verify the quality of the review and does not validate
+arbitrary lockers by default. Example method, with no address falsely validated.
 
-`scripts/replay.py <manifest.json>` reproduit des observations RPC sourcées à un
-bloc fixé. `scripts/benchmark.py` collecte l'état actuel d'un jeu externe de tokens
-ayant subi des incidents. Sources et licence sont dans `validation/`. Ce jeu ne
-contient pas de témoins bénins et ses étiquettes ne sont pas expertisées ici :
-aucune précision de détection ou performance prédictive n'en est déduite.
+`scripts/replay.py <manifest.json>` reproduces sourced RPC observations at a
+pinned block. `scripts/benchmark.py` collects the current state of an external set of tokens
+that suffered incidents. Sources and license are in `validation/`. This set does not
+contain benign controls and its labels are not expert-reviewed here:
+no detection precision or predictive performance is inferred from it.
